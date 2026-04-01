@@ -43,9 +43,11 @@ export default function Navbar() {
         <div className="flex items-center justify-between h-20">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-3 group">
-            <div className="w-10 h-10 rounded-full border-2 border-primary flex items-center justify-center">
-              <span className="font-cinzel text-primary text-sm font-bold">GRK</span>
-            </div>
+            <img
+              src="/logo.png"
+              alt="Goju-Ryu Karate-Kai"
+              className="h-14 w-14 object-contain transition-transform duration-300 group-hover:scale-105"
+            />
             <div className="flex flex-col leading-tight">
               <span className="font-cinzel text-white text-sm font-semibold tracking-widest uppercase">Goju-Ryu</span>
               <span className="font-cinzel text-primary text-xs tracking-[0.15em] uppercase">Karate Kai</span>

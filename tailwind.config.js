@@ -24,6 +24,11 @@ module.exports = {
           border: '#1e1e1e',
           muted: '#2a2a2a',
         },
+        white: {
+          DEFAULT: '#ffffff',
+          muted: '#f5f5f5',
+          dim: '#e0e0e0',
+        },
       },
       fontFamily: {
         display: ['var(--font-cinzel)', 'serif'],
