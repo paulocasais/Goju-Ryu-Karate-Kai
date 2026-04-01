@@ -56,13 +56,3 @@ Acesse em: http://localhost:3000
 | `/admin/galeria` | CRUD da galeria |
 | `/admin/eventos` | CRUD de eventos |
 | `/admin/contatos` | Mensagens recebidas |
-
-## Vídeo de fundo
-O vídeo placeholder está em `hero_video_url` no banco ou no arquivo `src/app/page.js`.
-Substitua pela URL do vídeo real do dojo quando disponível.
-
-## Deploy (Vercel)
-1. Suba o projeto no GitHub
-2. Conecte no Vercel
-3. Adicione as variáveis de ambiente
-4. Deploy automático ✅
