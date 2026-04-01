@@ -23,15 +23,15 @@ export default function StatsSection({ stats }) {
   }, [])
 
   return (
-    <section ref={sectionRef} className="py-16 bg-primary/10 border-y border-primary/20">
+    <section ref={sectionRef} className="py-16 bg-primary">
       <div className="max-w-7xl mx-auto px-4 md:px-8 lg:px-16">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
           {items.map((stat, i) => (
             <div key={i}
               className="reveal text-center"
               style={{ transitionDelay: `${i * 80}ms` }}>
-              <div className="font-cinzel text-5xl font-bold text-primary mb-2">{stat.num}</div>
-              <div className="text-gray-400 text-sm font-cinzel tracking-wider uppercase">{stat.label}</div>
+              <div className="font-cinzel text-5xl font-bold text-white mb-2">{stat.num}</div>
+              <div className="text-white/70 text-sm font-cinzel tracking-wider uppercase">{stat.label}</div>
             </div>
           ))}
         </div>

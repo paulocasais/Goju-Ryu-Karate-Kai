@@ -23,17 +23,17 @@ export default function DojoKunSection() {
   }, [])
 
   return (
-    <section ref={sectionRef} className="relative py-24 overflow-hidden bg-dark-card">
+    <section ref={sectionRef} className="relative py-24 overflow-hidden bg-dark-card border-l-4 border-primary">
       {/* Background pattern */}
-      <div className="absolute inset-0 opacity-3" style={{
-        backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23c41e2a' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+      <div className="absolute inset-0" style={{
+        backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23c41e2a' fill-opacity='0.06'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
       }} />
 
       <div className="max-w-5xl mx-auto px-4 md:px-8 lg:px-16">
         {/* Header */}
         <div className="text-center mb-16">
           <p className="reveal text-primary font-cinzel text-xs tracking-[0.3em] uppercase mb-4">Preceitos do Dojo</p>
-          <h2 className="reveal font-cinzel text-5xl md:text-6xl font-bold text-white mb-2">
+          <h2 className="reveal font-cinzel text-5xl md:text-6xl font-bold text-primary mb-2">
             道場訓
           </h2>
           <p className="reveal font-cinzel text-2xl text-gray-400 tracking-widest">DOJO KUN</p>

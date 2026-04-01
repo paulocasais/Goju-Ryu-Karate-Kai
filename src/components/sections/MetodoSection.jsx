@@ -60,7 +60,7 @@ export default function MetodoSection({ passos }) {
               className="reveal bg-dark-card p-10 flex flex-col gap-5 group hover:bg-dark transition-colors duration-300"
               style={{ transitionDelay: `${i * 150}ms` }}>
               {/* Number */}
-              <span className="font-cinzel text-6xl font-bold text-dark-border group-hover:text-primary/20 transition-colors duration-500 leading-none">
+              <span className="font-cinzel text-6xl font-bold text-primary/15 group-hover:text-primary/40 transition-colors duration-500 leading-none">
                 {passo.num}
               </span>
               <div>

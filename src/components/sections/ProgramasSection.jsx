@@ -38,35 +38,35 @@ export default function ProgramasSection({ programas }) {
   }, [])
 
   return (
-    <section ref={sectionRef} className="section-pad bg-dark">
+    <section ref={sectionRef} className="section-pad bg-[#f5f0eb]">
       <div className="max-w-7xl mx-auto">
 
         {/* Header */}
         <div className="text-center mb-16">
           <p className="reveal text-primary font-cinzel text-xs tracking-[0.3em] uppercase mb-4">O que Oferecemos</p>
-          <h2 className="reveal font-cinzel text-4xl md:text-5xl font-bold text-white leading-tight">
+          <h2 className="reveal font-cinzel text-4xl md:text-5xl font-bold text-gray-900 leading-tight">
             Tradição e Excelência
           </h2>
           <div className="reveal w-16 h-0.5 bg-primary mx-auto mt-6 mb-5" />
-          <p className="reveal text-gray-400 max-w-xl mx-auto">
+          <p className="reveal text-gray-500 max-w-xl mx-auto">
             Explore nossos programas de Karatê Goju-Ryu, combinando tradição e técnica para seu desenvolvimento pessoal.
           </p>
         </div>
 
-        {/* Cards */}
+        {/* Cards — dark floating on light */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {items.map((p, i) => {
             const Icon = p.icon || BookOpen
             return (
               <div key={i}
-                className="reveal card-hover border border-dark-border bg-dark-card p-8 flex flex-col gap-6"
+                className="reveal border border-gray-200 bg-[#0a0a0a] p-8 flex flex-col gap-6 shadow-xl hover:border-primary/50 hover:-translate-y-1 transition-all duration-300"
                 style={{ transitionDelay: `${i * 100}ms` }}>
                 <div className="flex items-start justify-between">
-                  <div className="w-14 h-14 border border-primary/30 flex items-center justify-center">
+                  <div className="w-14 h-14 border border-primary/30 flex items-center justify-center bg-dark-card">
                     <Icon size={24} className="text-primary" />
                   </div>
                   {p.badge && (
-                    <span className="text-xs font-cinzel text-primary border border-primary/30 px-3 py-1 uppercase tracking-wider">
+                    <span className="text-xs font-cinzel text-white bg-primary px-3 py-1 uppercase tracking-wider">
                       {p.badge}
                     </span>
                   )}
@@ -77,7 +77,7 @@ export default function ProgramasSection({ programas }) {
                 </div>
                 <div className="mt-auto pt-4 border-t border-dark-border">
                   <a href="/contato"
-                    className="text-primary text-xs font-cinzel tracking-widest uppercase hover:text-white transition-colors duration-200 flex items-center gap-2 hover:gap-4 transition-all">
+                    className="text-primary text-xs font-cinzel tracking-widest uppercase hover:text-white transition-all duration-200 flex items-center gap-2 hover:gap-4">
                     Saiba mais →
                   </a>
                 </div>
