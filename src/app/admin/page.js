@@ -40,46 +40,25 @@ export default async function AdminDashboard() {
       </div>
 
       {/* Quick actions */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-dark-card border border-dark-border p-6">
-          <h3 className="font-cinzel text-white text-sm tracking-wider uppercase mb-5">Ações Rápidas</h3>
-          <div className="flex flex-col gap-3">
-            {[
-              { label: 'Editar texto do Hero', href: '/admin/conteudo' },
-              { label: 'Adicionar membro à equipe', href: '/admin/equipe' },
-              { label: 'Adicionar fotos à galeria', href: '/admin/galeria' },
-              { label: 'Criar novo evento', href: '/admin/eventos' },
-              { label: 'Ver mensagens recebidas', href: '/admin/contatos' },
-            ].map((a, i) => (
-              <a key={i} href={a.href}
-                className="flex items-center justify-between text-sm text-gray-400 hover:text-primary transition-colors py-2 border-b border-dark-border last:border-0">
-                {a.label}
-                <span className="text-xs">→</span>
-              </a>
-            ))}
-          </div>
-        </div>
-
-        <div className="bg-dark-card border border-dark-border p-6">
-          <h3 className="font-cinzel text-white text-sm tracking-wider uppercase mb-5">Status do Sistema</h3>
-          <div className="flex flex-col gap-4">
-            {[
-              { label: 'Site público', status: 'Online', ok: true },
-              { label: 'Banco de dados', status: 'Configurar .env', ok: false },
-              { label: 'Formulário de contato', status: 'Aguardando DB', ok: false },
-              { label: 'Galeria', status: 'Aguardando DB', ok: false },
-            ].map((s, i) => (
-              <div key={i} className="flex items-center justify-between text-sm">
-                <span className="text-gray-400">{s.label}</span>
-                <span className={`text-xs font-cinzel px-2 py-0.5 border ${s.ok ? 'text-green-400 border-green-400/30 bg-green-400/10' : 'text-yellow-400 border-yellow-400/30 bg-yellow-400/10'}`}>
-                  {s.status}
-                </span>
-              </div>
-            ))}
-          </div>
-          <div className="mt-6 p-4 bg-dark border border-dark-border text-xs text-gray-500 leading-relaxed">
-            Configure o arquivo <code className="text-primary">.env.local</code> com as credenciais do Supabase para ativar todas as funcionalidades.
-          </div>
+      <div className="bg-dark-card border border-dark-border p-8">
+        <h3 className="font-cinzel text-white text-base tracking-wider uppercase mb-8 flex items-center gap-3">
+          <div className="w-8 h-px bg-primary" />
+          Ações Rápidas
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-12 gap-y-4">
+          {[
+            { label: 'Editar texto do Hero', href: '/admin/conteudo' },
+            { label: 'Adicionar membro à equipe', href: '/admin/equipe' },
+            { label: 'Adicionar fotos à galeria', href: '/admin/galeria' },
+            { label: 'Criar novo evento', href: '/admin/eventos' },
+            { label: 'Ver mensagens recebidas', href: '/admin/contatos' },
+          ].map((a, i) => (
+            <a key={i} href={a.href}
+              className="group flex items-center justify-between text-sm text-gray-400 hover:text-white transition-all py-4 border-b border-dark-border/50 hover:border-primary/50">
+              <span className="group-hover:translate-x-1 transition-transform">{a.label}</span>
+              <span className="text-primary opacity-0 group-hover:opacity-100 transition-opacity text-xs">ACESSAR →</span>
+            </a>
+          ))}
         </div>
       </div>
     </div>

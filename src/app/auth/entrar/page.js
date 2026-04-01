@@ -29,7 +29,7 @@ export default function EntrarPage() {
       router.push('/admin')
       router.refresh()
     } catch (err) {
-      setError('E-mail ou senha inválidos.')
+      setError(err.message || 'E-mail ou senha inválidos.')
     } finally {
       setLoading(false)
     }
