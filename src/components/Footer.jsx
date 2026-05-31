@@ -11,7 +11,7 @@ export default function Footer() {
           <div className="lg:col-span-1">
             <div className="flex items-center gap-3 mb-5">
               <div className="w-10 h-10 rounded-full border-2 border-primary flex items-center justify-center">
-                <span className="font-cinzel text-primary text-sm font-bold">GRK</span>
+                <span className="font-cinzel text-primary text-sm font-bold">GRKK</span>
               </div>
               <div className="flex flex-col leading-tight">
                 <span className="font-cinzel text-white text-sm font-semibold tracking-widest uppercase">Goju-Ryu</span>
@@ -40,9 +40,11 @@ export default function Footer() {
               {[
                 { label: 'A Academia', href: '/sobre' },
                 { label: 'Equipe', href: '/equipe' },
-                { label: 'Serviços', href: '/servicos' },
+                { label: 'metodologia', href: '/servicos' },
+                { label: 'Projetos', href: '/projetos' },
                 { label: 'Galeria', href: '/galeria' },
                 { label: 'Eventos', href: '/eventos' },
+                { label: 'Transparência', href: '/transparencia' },
                 { label: 'Contato', href: '/contato' },
               ].map(link => (
                 <li key={link.href}>
@@ -88,9 +90,9 @@ export default function Footer() {
               </li>
               <li className="flex items-center gap-3">
                 <Mail size={15} className="text-primary flex-shrink-0" />
-                <a href="mailto:contato@gojuryukaratekai.com.br"
+                <a href="mailto:contato@gojoryukaratekai.com.br"
                   className="text-gray-400 text-sm hover:text-primary transition-colors break-all">
-                  contato@gojuryukaratekai.com.br
+                  contato@gojoryukaratekai.com.br
                 </a>
               </li>
             </ul>

@@ -1,3 +1,5 @@
+import { AuthProvider } from '@/context/AuthContext'
+import { TransitionProvider } from '@/components/PageTransition'
 import './globals.css'
 
 export const metadata = {
@@ -18,7 +20,11 @@ export default function RootLayout({ children }) {
   return (
     <html lang="pt-BR">
       <body className="bg-dark text-white font-body antialiased">
-        {children}
+        <AuthProvider>
+          <TransitionProvider>
+            {children}
+          </TransitionProvider>
+        </AuthProvider>
       </body>
     </html>
   )

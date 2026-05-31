@@ -112,3 +112,45 @@ body {
 .card-hover {
   @apply transition-all duration-300 hover:border-primary/50 hover:-translate-y-1;
 }
+
+/* ERP grid pattern */
+.bg-arena-grid {
+  background-image: 
+    linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* ERP Card top bar gradient */
+.tricolor-bar {
+  background: linear-gradient(90deg, #c41e2a 0%, #c8a96e 50%, #1a56db 100%);
+}
+
+/* Campos de entrada e selects legíveis (fundo escuro e fonte branca) */
+input, select, textarea {
+  color: #ffffff !important;
+  background-color: #141414 !important;
+}
+
+/* Opções de dropdown legíveis no Chrome/Firefox */
+select option {
+  background-color: #141414 !important;
+  color: #ffffff !important;
+}
+
+/* Ajuste para Autofill do navegador (evita fundo branco com fonte branca) */
+input:-webkit-autofill,
+input:-webkit-autofill:hover, 
+input:-webkit-autofill:focus,
+textarea:-webkit-autofill,
+textarea:-webkit-autofill:hover,
+textarea:-webkit-autofill:focus,
+select:-webkit-autofill,
+select:-webkit-autofill:hover,
+select:-webkit-autofill:focus {
+  -webkit-text-fill-color: #ffffff !important;
+  -webkit-box-shadow: 0 0 0px 1000px #141414 inset !important;
+  transition: background-color 5000s ease-in-out 0s !important;
+}
+
+

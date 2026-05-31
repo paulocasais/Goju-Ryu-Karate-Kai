@@ -45,7 +45,7 @@ Acesse em: http://localhost:3000
 | `/` | Homepage com hero, Dojo Kun, programas, método, contato |
 | `/sobre` | História, missão, visão e valores |
 | `/equipe` | Instrutores e membros |
-| `/servicos` | Programas e serviços |
+| `/servicos` | Programas e metodologia |
 | `/galeria` | Fotos e vídeos |
 | `/eventos` | Calendário de eventos |
 | `/contato` | Formulário de contato |

@@ -15,7 +15,7 @@ export default function ContatoPage() {
             <h1 className="font-cinzel text-5xl md:text-6xl font-bold text-white leading-tight mb-6">Contato</h1>
             <div className="w-16 h-0.5 bg-primary mb-6" />
             <p className="text-gray-400 max-w-xl text-lg">
-              Tire suas dúvidas, agende uma aula experimental ou venha nos conhecer. Oss!
+              Tire suas dúvidas, agende uma aula experimental ou venha nos conhecer. Onegai shimasu!
             </p>
           </div>
         </section>

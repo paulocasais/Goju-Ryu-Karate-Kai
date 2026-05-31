@@ -3,7 +3,7 @@ import Footer from '@/components/Footer'
 import { BookOpen, Users, Globe, Award, Target, Heart } from 'lucide-react'
 import Link from 'next/link'
 
-export const metadata = { title: 'Serviços' }
+export const metadata = { title: 'metodologia' }
 
 const servicos = [
   {
@@ -55,7 +55,7 @@ export default function ServicosPage() {
             style={{ backgroundImage: 'radial-gradient(circle at 50% 50%, #c41e2a 0%, transparent 60%)' }} />
           <div className="max-w-7xl mx-auto px-4 md:px-8 lg:px-16">
             <p className="text-primary font-cinzel text-xs tracking-[0.3em] uppercase mb-4">O que Oferecemos</p>
-            <h1 className="font-cinzel text-5xl md:text-6xl font-bold text-white leading-tight mb-6">Serviços</h1>
+            <h1 className="font-cinzel text-5xl md:text-6xl font-bold text-white leading-tight mb-6">Metodologia</h1>
             <div className="w-16 h-0.5 bg-primary mb-6" />
             <p className="text-gray-400 max-w-xl text-lg">
               Programas de Karatê Goju-Ryu para todas as idades, do iniciante ao praticante avançado.

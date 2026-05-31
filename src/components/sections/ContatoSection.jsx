@@ -83,9 +83,9 @@ export default function ContatoSection() {
                 <Mail size={18} className="text-primary flex-shrink-0" />
                 <h4 className="font-cinzel text-white text-sm tracking-wider">E-mail</h4>
               </div>
-              <a href="mailto:contato@gojuryukaratekai.com.br"
+              <a href="mailto:contato@gojoryukaratekai.com.br"
                 className="text-gray-400 text-sm pl-8 hover:text-primary transition-colors break-all">
-                contato@gojuryukaratekai.com.br
+                contato@gojoryukaratekai.com.br
               </a>
             </div>
 
@@ -112,7 +112,7 @@ export default function ContatoSection() {
               <div className="flex flex-col items-center justify-center h-full gap-5 py-20">
                 <CheckCircle size={48} className="text-green-500" />
                 <h3 className="font-cinzel text-white text-xl">Mensagem enviada!</h3>
-                <p className="text-gray-400 text-center">Entraremos em contato em breve. Oss!</p>
+                <p className="text-gray-400 text-center">Entraremos em contato em breve. Onegai shimasu!</p>
                 <button onClick={() => setSuccess(false)}
                   className="text-primary font-cinzel text-xs tracking-widest uppercase hover:text-white transition-colors">
                   Enviar outra mensagem

@@ -1,16 +1,36 @@
 import { createClient } from '@/lib/supabase-server'
 import { Users, MessageSquare, Calendar, Image } from 'lucide-react'
 
+export const dynamic = 'force-dynamic'
+
 export default async function AdminDashboard() {
-  // Fetch stats when Supabase is connected
-  // const supabase = createClient()
-  // const [contacts, events] = await Promise.all([...])
+  let contactsCount = 0;
+  let teamCount = 0;
+  let eventsCount = 0;
+  let galleryCount = 0;
+
+  try {
+    const supabase = createClient();
+    const [contactsRes, teamRes, eventsRes, galleryRes] = await Promise.all([
+      supabase.from('contacts').select('*', { count: 'exact', head: true }),
+      supabase.from('team_members').select('*', { count: 'exact', head: true }),
+      supabase.from('events').select('*', { count: 'exact', head: true }),
+      supabase.from('gallery_items').select('*', { count: 'exact', head: true }),
+    ]);
+
+    contactsCount = contactsRes.count || 0;
+    teamCount = teamRes.count || 0;
+    eventsCount = eventsRes.count || 0;
+    galleryCount = galleryRes.count || 0;
+  } catch (err) {
+    console.warn('⚠️ Erro ao carregar estatísticas do CMS:', err.message);
+  }
 
   const stats = [
-    { label: 'Mensagens', value: '—', icon: MessageSquare, color: 'text-blue-400' },
-    { label: 'Membros da Equipe', value: '—', icon: Users, color: 'text-green-400' },
-    { label: 'Eventos', value: '—', icon: Calendar, color: 'text-gold' },
-    { label: 'Fotos na Galeria', value: '—', icon: Image, color: 'text-primary' },
+    { label: 'Mensagens', value: contactsCount, icon: MessageSquare, color: 'text-blue-400' },
+    { label: 'Membros da Equipe', value: teamCount, icon: Users, color: 'text-green-400' },
+    { label: 'Eventos', value: eventsCount, icon: Calendar, color: 'text-gold' },
+    { label: 'Fotos na Galeria', value: galleryCount, icon: Image, color: 'text-primary' },
   ]
 
   return (

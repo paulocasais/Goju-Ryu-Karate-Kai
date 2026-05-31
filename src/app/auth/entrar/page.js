@@ -26,7 +26,7 @@ export default function EntrarPage() {
         password: form.password,
       })
       if (err) throw err
-      router.push('/admin')
+      router.push('/home')
       router.refresh()
     } catch (err) {
       setError(err.message || 'E-mail ou senha inválidos.')
@@ -44,7 +44,7 @@ export default function EntrarPage() {
           style={{ backgroundImage: 'radial-gradient(circle at 50% 50%, #c41e2a 0%, transparent 70%)' }} />
         <div className="relative flex flex-col justify-center items-center text-center p-16 w-full">
           <div className="w-20 h-20 rounded-full border-2 border-primary flex items-center justify-center mb-8">
-            <span className="font-cinzel text-primary text-2xl font-bold">GRK</span>
+            <span className="font-cinzel text-primary text-2xl font-bold">GRKK</span>
           </div>
           <h1 className="font-cinzel text-4xl text-white font-bold mb-4">Goju-Ryu<br />Karate Kai</h1>
           <div className="w-12 h-0.5 bg-primary mx-auto my-5" />
@@ -114,6 +114,13 @@ export default function EntrarPage() {
               {loading ? 'Entrando...' : 'Entrar'}
             </button>
           </form>
+
+          <p className="text-gray-500 text-xs text-center mt-6">
+            Ainda não possui cadastro?{' '}
+            <Link href="/auth/cadastro" className="text-primary hover:underline font-semibold transition-all">
+              Filie-se aqui (Academia ou Aluno)
+            </Link>
+          </p>
         </div>
       </div>
     </div>

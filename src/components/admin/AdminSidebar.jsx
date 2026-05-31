@@ -5,12 +5,14 @@ import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import {
   LayoutDashboard, FileText, Users, Image, Calendar,
-  MessageSquare, LogOut, ExternalLink, Menu, X
+  MessageSquare, LogOut, ExternalLink, Menu, X, ClipboardCheck
 } from 'lucide-react'
 import { useState } from 'react'
 
 const navItems = [
-  { label: 'Dashboard', href: '/admin', icon: LayoutDashboard },
+  { label: 'Voltar ao ERP', href: '/home', icon: LayoutDashboard },
+  { label: 'Dashboard CMS', href: '/admin', icon: LayoutDashboard },
+  { label: 'Aprovações', href: '/admin/aprovacoes', icon: ClipboardCheck },
   { label: 'Conteúdo do Site', href: '/admin/conteudo', icon: FileText },
   { label: 'Equipe', href: '/admin/equipe', icon: Users },
   { label: 'Galeria', href: '/admin/galeria', icon: Image },
@@ -36,7 +38,7 @@ export default function AdminSidebar() {
       <div className="p-6 border-b border-dark-border">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-full border-2 border-primary flex items-center justify-center flex-shrink-0">
-            <span className="font-cinzel text-primary text-xs font-bold">GRK</span>
+            <span className="font-cinzel text-primary text-xs font-bold">GRKK</span>
           </div>
           <div>
             <p className="font-cinzel text-white text-xs font-semibold">Goju-Ryu Karate Kai</p>

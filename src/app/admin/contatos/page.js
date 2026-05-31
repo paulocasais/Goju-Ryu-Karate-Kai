@@ -2,12 +2,15 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
-import { RefreshCw, Mail, Phone, Trash2, MessageSquare } from 'lucide-react'
+import { RefreshCw, Mail, Phone, Trash2, MessageSquare, Send } from 'lucide-react'
+import { toast } from 'sonner'
 
 export default function AdminContatosPage() {
   const [contacts, setContacts] = useState([])
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState(null)
+  const [replyText, setReplyText] = useState('')
+  const [sendingReply, setSendingReply] = useState(false)
 
   const load = async () => {
     setLoading(true)
@@ -21,12 +24,53 @@ export default function AdminContatosPage() {
 
   useEffect(() => { load() }, [])
 
+  useEffect(() => {
+    setReplyText('')
+  }, [selected])
+
   const handleDelete = async (id) => {
     if (!confirm('Remover esta mensagem?')) return
     const supabase = createClient()
     await supabase.from('contacts').delete().eq('id', id)
     if (selected?.id === id) setSelected(null)
     load()
+  }
+
+  const handleSendReply = async () => {
+    if (!replyText.trim() || !selected) return
+    setSendingReply(true)
+    try {
+      const res = await fetch('/api/contatos/responder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contatoId: selected.id,
+          email: selected.email,
+          assunto: `Re: Goju-Ryu Karate Kai`,
+          mensagem: replyText
+        })
+      })
+
+      if (!res.ok) {
+        const errData = await res.json()
+        throw new Error(errData.erro || 'Falha ao enviar resposta.')
+      }
+
+      const resData = await res.json()
+      if (resData.simulado) {
+        toast.success('Resposta simulada salva e registrada na auditoria!')
+      } else {
+        toast.success('Resposta enviada com sucesso!')
+      }
+
+      setReplyText('')
+      load()
+      setSelected(prev => ({ ...prev, read: true }))
+    } catch (err) {
+      toast.error(err.message)
+    } finally {
+      setSendingReply(false)
+    }
   }
 
   return (
@@ -50,8 +94,17 @@ export default function AdminContatosPage() {
           <div className="lg:col-span-2 flex flex-col gap-2">
             {contacts.map(c => (
               <button key={c.id} onClick={() => setSelected(c)}
-                className={`text-left p-4 border transition-all duration-200 ${selected?.id === c.id ? 'border-primary bg-primary/10' : 'border-dark-border bg-dark-card hover:border-dark-muted'}`}>
-                <p className="font-cinzel text-white text-sm font-bold">{c.name}</p>
+                className={`text-left p-4 border transition-all duration-200 relative ${
+                  selected?.id === c.id 
+                    ? 'border-primary bg-primary/10' 
+                    : 'border-dark-border bg-dark-card hover:border-dark-muted'
+                }`}>
+                <div className="flex items-center justify-between">
+                  <p className="font-cinzel text-white text-sm font-bold">{c.name}</p>
+                  {!c.read && (
+                    <span className="w-2 h-2 rounded-full bg-primary shrink-0" />
+                  )}
+                </div>
                 <p className="text-gray-500 text-xs mt-1 truncate">{c.message}</p>
                 <p className="text-gray-700 text-xs mt-2">
                   {new Date(c.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}
@@ -63,8 +116,8 @@ export default function AdminContatosPage() {
           {/* Detail */}
           <div className="lg:col-span-3">
             {selected ? (
-              <div className="bg-dark-card border border-dark-border p-6">
-                <div className="flex items-start justify-between mb-6">
+              <div className="bg-dark-card border border-dark-border p-6 space-y-6">
+                <div className="flex items-start justify-between">
                   <div>
                     <h3 className="font-cinzel text-white text-xl font-bold">{selected.name}</h3>
                     <p className="text-gray-500 text-xs mt-1">
@@ -75,7 +128,8 @@ export default function AdminContatosPage() {
                     <Trash2 size={16} />
                   </button>
                 </div>
-                <div className="flex flex-col gap-3 mb-6">
+
+                <div className="flex flex-col gap-3">
                   <a href={`mailto:${selected.email}`} className="flex items-center gap-3 text-gray-300 hover:text-primary transition-colors text-sm">
                     <Mail size={14} className="text-primary" /> {selected.email}
                   </a>
@@ -85,13 +139,42 @@ export default function AdminContatosPage() {
                     </a>
                   )}
                 </div>
+
                 <div className="border-t border-dark-border pt-5">
-                  <p className="text-gray-400 leading-relaxed">{selected.message}</p>
+                  <h4 className="text-[10px] font-black uppercase text-gray-600 tracking-widest mb-2">Mensagem Recebida</h4>
+                  <p className="text-gray-300 leading-relaxed bg-dark/20 p-4 border border-dark-border/20 rounded-xl text-sm">{selected.message}</p>
                 </div>
-                <a href={`mailto:${selected.email}?subject=Re: Goju-Ryu Karate Kai`}
-                  className="inline-flex items-center gap-2 mt-6 bg-primary text-white font-cinzel text-xs tracking-widest uppercase px-6 py-3 hover:bg-primary-dark transition-all">
-                  <Mail size={14} /> Responder por E-mail
-                </a>
+
+                <div className="border-t border-dark-border pt-5 space-y-4">
+                  <h4 className="text-[10px] font-black uppercase text-primary tracking-widest">Responder diretamente pelo CMS</h4>
+                  <textarea
+                    value={replyText}
+                    onChange={(e) => setReplyText(e.target.value)}
+                    placeholder="Escreva sua resposta para o remetente..."
+                    rows={5}
+                    className="w-full bg-dark/40 border border-dark-border/60 text-white p-4 text-xs focus:outline-none focus:border-primary transition-colors placeholder-gray-700 resize-none rounded-xl"
+                  />
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <button
+                      onClick={handleSendReply}
+                      disabled={sendingReply || !replyText.trim()}
+                      className="flex-1 bg-primary text-white font-cinzel text-xs font-bold tracking-widest uppercase py-3.5 hover:bg-primary-dark transition-all disabled:opacity-30 flex items-center justify-center gap-2"
+                    >
+                      {sendingReply ? (
+                        <RefreshCw size={14} className="animate-spin" />
+                      ) : (
+                        <Send size={14} />
+                      )}
+                      Enviar Resposta
+                    </button>
+                    <a 
+                      href={`mailto:${selected.email}?subject=Re: Goju-Ryu Karate Kai&body=${encodeURIComponent(replyText)}`}
+                      className="border border-dark-border text-gray-400 hover:text-white font-cinzel text-xs tracking-widest uppercase px-5 py-3.5 hover:bg-white/[0.02] transition-all text-center flex items-center justify-center gap-2"
+                    >
+                      Responder via Cliente Local
+                    </a>
+                  </div>
+                </div>
               </div>
             ) : (
               <div className="bg-dark-card border border-dark-border flex items-center justify-center h-64 text-gray-600">
