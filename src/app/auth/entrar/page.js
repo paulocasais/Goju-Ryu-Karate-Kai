@@ -103,6 +103,15 @@ export default function EntrarPage() {
               </div>
             </div>
 
+            <div className="flex justify-end -mt-2">
+              <Link
+                href="/auth/esqueceu-senha"
+                className="text-xs text-gray-500 hover:text-primary transition-colors"
+              >
+                Esqueceu a senha?
+              </Link>
+            </div>
+
             {error && (
               <p className="text-red-400 text-sm bg-red-400/10 border border-red-400/20 px-4 py-3">{error}</p>
             )}
