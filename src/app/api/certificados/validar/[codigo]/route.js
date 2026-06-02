@@ -11,13 +11,13 @@ export async function GET(request, { params }) {
             .from('certificados')
             .select(`
                 *,
-                atletas:atleta_id (
+                atletas!atleta_id (
                     id,
                     faixa,
-                    profiles:id (
+                    profiles!id (
                         nome
                     ),
-                    filiais:filial_id (
+                    filiais!filial_id (
                         nome
                     )
                 )

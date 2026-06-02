@@ -10,12 +10,12 @@ export async function GET(request, { params }) {
         .from('atletas')
         .select(`
             *,
-            profiles:id (
+            profiles!id (
                 nome,
                 email,
                 telefone
             ),
-            filiais:filial_id (
+            filiais!filial_id (
                 nome,
                 cidade,
                 estado
@@ -105,6 +105,10 @@ export async function PATCH(request, { params }) {
         status: body.status === 'aprovado' ? 'ativo' : (body.status === 'reprovado' ? 'reprovado' : body.status),
         cpf: body.cpf,
         filial_id: body.filial_id,
+        responsavel_nome: body.responsavel_nome,
+        responsavel_cpf: body.responsavel_cpf,
+        responsavel_email: body.responsavel_email,
+        responsavel_telefone: body.responsavel_telefone,
         updated_at: new Date().toISOString()
     }
 
@@ -121,12 +125,12 @@ export async function PATCH(request, { params }) {
         .eq('id', id)
         .select(`
             *,
-            profiles:id (
+            profiles!id (
                 nome,
                 email,
                 telefone
             ),
-            filiais:filial_id (
+            filiais!filial_id (
                 nome,
                 cidade,
                 estado

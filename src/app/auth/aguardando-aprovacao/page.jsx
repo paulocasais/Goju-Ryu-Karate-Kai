@@ -5,7 +5,8 @@ import { Shield, Clock, Mail, ArrowLeft } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
 export default function AguardandoAprovacaoPage() {
-  const { logout } = useAuth();
+  const { logout, usuario } = useAuth();
+  const tipoCadastro = usuario?.tipo === 'filial' ? 'de filial' : usuario?.tipo === 'atleta' ? 'de atleta' : '';
 
   return (
     <div className="min-h-screen bg-dark-300 flex items-center justify-center px-4">
@@ -37,7 +38,7 @@ export default function AguardandoAprovacaoPage() {
 
           <h1 className="text-2xl font-bold text-ink-100 mb-2">Aguardando Aprovação</h1>
           <p className="text-ink-400 mb-6">
-            Seu cadastro de filial foi recebido e está sendo analisado pela nossa equipe.
+            Seu cadastro {tipoCadastro || 'de membro'} foi recebido e está sendo analisado pela nossa equipe.
             Você será notificado por e-mail assim que for aprovado.
           </p>
 

@@ -48,6 +48,37 @@ export default function ExamesPage() {
 
   // Accordion de Candidatos por Exame (Admin)
   const [exameExpandidoId, setExameExpandidoId] = useState(null);
+  const [activeTabMap, setActiveTabMap] = useState({});
+  const [numBancadas, setNumBancadas] = useState(3);
+  const [showBancaColetivaModal, setShowBancaColetivaModal] = useState(false);
+  const [bancadaSelecionada, setBancadaSelecionada] = useState(null);
+  const [exameSelecionadoParaBanca, setExameSelecionadoParaBanca] = useState(null);
+  const [bancaColetivaForm, setBancaColetivaForm] = useState({ examinadores: '', alunos: {} });
+  const [distributing, setDistributing] = useState(false);
+  const [blackBelts, setBlackBelts] = useState([]);
+
+  // Helper to toggle an examiner in a comma-separated text list
+  const toggleExaminer = (name, currentText, isColetiva = false) => {
+    const list = currentText
+      ? currentText.split(',').map(s => s.trim()).filter(Boolean)
+      : [];
+
+    const nameToToggle = name.startsWith('Sensei ') ? name : `Sensei ${name}`;
+    const index = list.indexOf(nameToToggle);
+
+    if (index >= 0) {
+      list.splice(index, 1);
+    } else {
+      list.push(nameToToggle);
+    }
+
+    const newText = list.join(', ');
+    if (isColetiva) {
+      setBancaColetivaForm(prev => ({ ...prev, examinadores: newText }));
+    } else {
+      setBancaForm(prev => ({ ...prev, examinadores: newText }));
+    }
+  };
 
   // Carregar dados iniciais
   useEffect(() => {
@@ -76,6 +107,17 @@ export default function ExamesPage() {
             setAtletas(data.atletas || []);
           }
         }
+
+        // Se for admin, carregar atletas para obter os faixas pretas (examinadores)
+        if (isAdmin) {
+          const resAtletas = await fetch('/api/atletas?limit=100');
+          if (resAtletas.ok) {
+            const data = await resAtletas.json();
+            const list = data.atletas || [];
+            const bbs = list.filter(a => a.faixa && a.faixa.toLowerCase().includes('preta'));
+            setBlackBelts(bbs);
+          }
+        }
       } catch (err) {
         console.error('Erro ao carregar dados:', err);
         toast.error('Erro ao carregar dados do painel.');
@@ -84,7 +126,7 @@ export default function ExamesPage() {
       }
     }
     carregarDados();
-  }, [isFilial]);
+  }, [isFilial, isAdmin]);
 
   // Handler criar novo exame (Admin)
   const handleCriarExame = async (e) => {
@@ -310,6 +352,224 @@ export default function ExamesPage() {
       toast.success('Inscrição cancelada com sucesso.');
     } catch (err) {
       toast.error(err.message || 'Erro ao cancelar inscrição.');
+    }
+  };
+
+  // Função para distribuir alunos de forma equilibrada nas bancadas
+  const handleDistribuirBancadas = async (exameId) => {
+    setDistributing(true);
+    try {
+      const homologadosSemBanca = candidatos.filter(
+        c => c.exame_id === exameId && 
+             c.status === 'inscrito' && 
+             !c.dados_banca?.bancada
+      );
+
+      if (homologadosSemBanca.length === 0) {
+        toast.error('Nenhum aluno homologado na fila para distribuição.');
+        return;
+      }
+
+      // Distribuição equilibrada considerando candidatos já alocados
+      const activeBenches = Array.from({ length: numBancadas }, (_, i) => `Bancada ${i + 1}`);
+      const assignments = {};
+      activeBenches.forEach(b => {
+        assignments[b] = candidatos.filter(
+          c => c.exame_id === exameId && 
+               c.status === 'inscrito' && 
+               c.dados_banca?.bancada === b
+        );
+      });
+
+      const updates = [];
+
+      homologadosSemBanca.forEach(cand => {
+        // Encontra as bancadas que ainda têm espaço (< 3)
+        const benchesWithSpace = activeBenches.filter(b => assignments[b].length < 3);
+        if (benchesWithSpace.length === 0) return; // Sem mais espaço
+
+        // Encontra o tamanho mínimo de ocupação entre as bancadas com espaço
+        const minLength = Math.min(...benchesWithSpace.map(b => assignments[b].length));
+        
+        // Seleciona a primeira bancada com menor ocupação (mantém o equilíbrio)
+        const selectedBench = benchesWithSpace.find(b => assignments[b].length === minLength);
+
+        if (selectedBench) {
+          assignments[selectedBench].push(cand);
+          // Prepara a requisição PATCH para salvar no banco
+          const novoDadosBanca = {
+            ...(cand.dados_banca || {}),
+            bancada: selectedBench
+          };
+          
+          updates.push(
+            fetch(`/api/exames/candidatos/${cand.id}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ dados_banca: novoDadosBanca })
+            })
+          );
+        }
+      });
+
+      if (updates.length === 0) {
+        toast.error('Não foi possível alocar alunos. As bancadas ativas já estão cheias.');
+        return;
+      }
+
+      // Executa todas as atualizações de forma concorrente
+      const results = await Promise.all(updates);
+      const allOk = results.every(r => r.ok);
+
+      if (allOk) {
+        // Recarregar os candidatos
+        const resCandidatos = await fetch('/api/exames/candidatos');
+        if (resCandidatos.ok) {
+          const data = await resCandidatos.json();
+          setCandidatos(data.candidatos || []);
+        }
+        toast.success(`Alunos distribuídos com sucesso em ${numBancadas} bancadas!`);
+      } else {
+        toast.error('Erro parcial ao distribuir alguns alunos.');
+      }
+    } catch (err) {
+      console.error('Erro ao distribuir bancadas:', err);
+      toast.error('Erro interno ao distribuir alunos.');
+    } finally {
+      setDistributing(false);
+    }
+  };
+
+  // Função para limpar atribuição de bancadas
+  const handleLimparBancadas = async (exameId) => {
+    if (!confirm('Deseja realmente retirar todos os alunos das bancadas e retorná-los à fila de espera?')) return;
+    setDistributing(true);
+    try {
+      const candidatosComBanca = candidatos.filter(
+        c => c.exame_id === exameId && 
+             c.status === 'inscrito' && 
+             c.dados_banca?.bancada
+      );
+
+      if (candidatosComBanca.length === 0) {
+        toast.error('Nenhum aluno alocado em bancada.');
+        return;
+      }
+
+      const updates = candidatosComBanca.map(cand => {
+        const novoDadosBanca = { ...(cand.dados_banca || {}) };
+        delete novoDadosBanca.bancada;
+        
+        return fetch(`/api/exames/candidatos/${cand.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ dados_banca: novoDadosBanca })
+        });
+      });
+
+      const results = await Promise.all(updates);
+      const allOk = results.every(r => r.ok);
+
+      if (allOk) {
+        const resCandidatos = await fetch('/api/exames/candidatos');
+        if (resCandidatos.ok) {
+          const data = await resCandidatos.json();
+          setCandidatos(data.candidatos || []);
+        }
+        toast.success('Bancadas limpas com sucesso!');
+      } else {
+        toast.error('Erro ao limpar algumas bancadas.');
+      }
+    } catch (err) {
+      console.error('Erro ao limpar bancadas:', err);
+      toast.error('Erro interno ao limpar bancadas.');
+    } finally {
+      setDistributing(false);
+    }
+  };
+
+  const handleAbrirBancaColetivaModal = (exameId, bancadaNome, candidatosBancada) => {
+    setExameSelecionadoParaBanca(exameId);
+    setBancadaSelecionada(bancadaNome);
+    
+    // Obter examinadores do primeiro candidato ou vazio
+    const primeiroExaminador = candidatosBancada[0]?.dados_banca?.examinadores || '';
+
+    // Inicializar o formulário para cada aluno
+    const inicialAlunos = {};
+    candidatosBancada.forEach(cand => {
+      const db = cand.dados_banca || {};
+      inicialAlunos[cand.id] = {
+        nota_tecnica: db.nota_tecnica !== undefined ? db.nota_tecnica : '',
+        nota_kata: db.nota_kata !== undefined ? db.nota_kata : '',
+        nota_combate: db.nota_combate !== undefined ? db.nota_combate : '',
+        parecer: db.parecer || '',
+        aprovado: cand.status === 'reprovado' ? false : true
+      };
+    });
+
+    setBancaColetivaForm({
+      examinadores: primeiroExaminador,
+      alunos: inicialAlunos
+    });
+
+    setShowBancaColetivaModal(true);
+  };
+
+  const handleSalvarBancaColetivaAvaliacao = async (e) => {
+    e.preventDefault();
+    if (!bancadaSelecionada || !exameSelecionadoParaBanca) return;
+
+    setLoading(true);
+    try {
+      const candidatosBancada = candidatos.filter(
+        c => c.exame_id === exameSelecionadoParaBanca && 
+             c.dados_banca?.bancada === bancadaSelecionada
+      );
+
+      const updates = candidatosBancada.map(cand => {
+        const formAluno = bancaColetivaForm.alunos[cand.id] || {};
+        const payload = {
+          status: formAluno.aprovado ? 'aprovado' : 'reprovado',
+          dados_banca: {
+            bancada: bancadaSelecionada,
+            examinadores: bancaColetivaForm.examinadores,
+            nota_tecnica: parseFloat(formAluno.nota_tecnica || '0'),
+            nota_kata: parseFloat(formAluno.nota_kata || '0'),
+            nota_combate: parseFloat(formAluno.nota_combate || '0'),
+            parecer: formAluno.parecer
+          }
+        };
+
+        return fetch(`/api/exames/candidatos/${cand.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+      });
+
+      const results = await Promise.all(updates);
+      const allOk = results.every(r => r.ok);
+
+      if (allOk) {
+        // Recarregar os candidatos
+        const resCandidatos = await fetch('/api/exames/candidatos');
+        if (resCandidatos.ok) {
+          const data = await resCandidatos.json();
+          setCandidatos(data.candidatos || []);
+        }
+        setShowBancaColetivaModal(false);
+        setBancadaSelecionada(null);
+        setExameSelecionadoParaBanca(null);
+        toast.success(`Avaliações da ${bancadaSelecionada} salvas com sucesso!`);
+      } else {
+        toast.error('Erro ao salvar algumas avaliações.');
+      }
+    } catch (err) {
+      console.error('Erro ao salvar banca coletiva:', err);
+      toast.error('Erro interno ao salvar avaliações.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -541,172 +801,316 @@ export default function ExamesPage() {
                       {isAdmin ? 'Candidatos Inscritos' : 'Minhas Candidaturas / Histórico'}
                     </h4>
 
-                    {candidatosDoExame.length === 0 ? (
-                      <p className="text-xs text-ink-600 italic">Nenhum candidato inscrito neste exame.</p>
-                    ) : (
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-left text-xs border-collapse">
-                          <thead>
-                            <tr className="border-b border-dark-50/60 text-ink-600 font-bold uppercase tracking-wider text-[10px]">
-                              <th className="pb-3">Candidato</th>
-                              {isAdmin && <th className="pb-3">Academia/Filial</th>}
-                              <th className="pb-3">Modalidade</th>
-                              <th className="pb-3">Pretensão</th>
-                              <th className="pb-3">Status Técnico</th>
-                              <th className="pb-3">Pagamento</th>
-                              <th className="pb-3 text-center">Status Final</th>
-                              <th className="pb-3 text-right">Ações</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {candidatosDoExame.map((cand) => {
-                              const db = cand.dados_banca || {};
-                              
-                              return (
-                                <tr key={cand.id} className="border-b border-dark-50/20 hover:bg-white/[0.01] transition">
-                                  <td className="py-3.5 pr-2">
-                                    <p className="font-bold text-ink-100">{cand.atleta_nome}</p>
-                                    <p className="text-[10px] text-ink-650">{cand.atleta_telefone ? `(login) ${cand.atleta_telefone}` : cand.atleta_email}</p>
-                                  </td>
-                                  
-                                  {isAdmin && (
-                                    <td className="py-3.5 pr-2 text-ink-400 font-medium">
-                                      {cand.filial_nome || '—'}
-                                    </td>
-                                  )}
-
-                                  <td className="py-3.5 pr-2 text-ink-600">{cand.modalidade}</td>
-                                  
-                                  <td className="py-3.5 pr-2 font-bold text-gold-400">{cand.graduacao_pretendida}</td>
-                                  
-                                  <td className="py-3.5 pr-2">
-                                    <div className="flex items-center gap-2">
-                                      <span className={`w-2 h-2 rounded-full ${cand.autorizacao_tecnica ? 'bg-green-400' : 'bg-red-400'}`} />
-                                      <span className="font-semibold text-ink-300">
-                                        {cand.autorizacao_tecnica ? 'Autorizado' : 'Pendente'}
-                                      </span>
-                                      {isFilial && !cand.autorizacao_tecnica && (
-                                        <button 
-                                          onClick={() => handleAutorizarCandidato(cand.id, false)}
-                                          className="text-[10px] bg-green-500/10 border border-green-500/20 text-green-400 px-2 py-0.5 rounded hover:bg-green-500 hover:text-white transition"
-                                        >
-                                          Autorizar
-                                        </button>
-                                      )}
-                                    </div>
-                                  </td>
-
-                                  <td className="py-3.5 pr-2">
-                                    <div className="flex items-center gap-2">
-                                      <span className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold ${
-                                        cand.pagamento_status === 'pago' ? 'bg-green-500/15 text-green-400' :
-                                        cand.pagamento_status === 'isento' ? 'bg-blue-500/15 text-blue-400' :
-                                        'bg-red-500/15 text-red-400'
-                                      }`}>
-                                        {cand.pagamento_status}
-                                      </span>
-                                      
-                                      {isAdmin && cand.pagamento_status === 'pendente' && (
-                                        <div className="flex gap-1">
-                                          <button 
-                                            onClick={() => handleAtualizarPagamento(cand.id, 'pago')}
-                                            className="text-[9px] bg-green-500/20 text-green-300 border border-green-500/20 px-1.5 py-0.5 rounded hover:bg-green-500 hover:text-white transition"
-                                            title="Confirmar Pago"
-                                          >
-                                            Pago
-                                          </button>
-                                          <button 
-                                            onClick={() => handleAtualizarPagamento(cand.id, 'isento')}
-                                            className="text-[9px] bg-blue-500/20 text-blue-300 border border-blue-500/20 px-1.5 py-0.5 rounded hover:bg-blue-500 hover:text-white transition"
-                                            title="Confirmar Isento"
-                                          >
-                                            Isento
-                                          </button>
-                                        </div>
-                                      )}
-                                    </div>
-                                  </td>
-
-                                  <td className="py-3.5 pr-2 text-center">
-                                    <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                                      cand.status === 'aprovado' ? 'bg-green-500/15 text-green-400 border border-green-500/20' :
-                                      cand.status === 'reprovado' ? 'bg-red-500/15 text-red-400 border border-red-500/20' :
-                                      cand.status === 'inscrito' ? 'bg-blue-500/15 text-blue-400 border border-blue-500/20' :
-                                      cand.status === 'apto' ? 'bg-gold-500/15 text-gold-400 border border-gold-500/20' :
-                                      'bg-dark-400 text-ink-600 border border-dark-50/50'
-                                    }`}>
-                                      {cand.status}
-                                    </span>
-                                  </td>
-
-                                  <td className="py-3.5 text-right space-y-1">
-                                    {isAdmin && (
-                                      <div className="flex items-center justify-end gap-2">
-                                        {cand.status === 'apto' && (
-                                          <button
-                                            onClick={() => handleHomologarInscricao(cand.id)}
-                                            className="text-[10px] bg-brand-500/10 border border-brand-500/20 text-brand-400 px-2 py-1 rounded-lg hover:bg-brand-500 hover:text-white transition"
-                                          >
-                                            Homologar
-                                          </button>
-                                        )}
-                                        
-                                        {cand.status === 'inscrito' && (
-                                          <button
-                                            onClick={() => handleAbrirBancaModal(cand)}
-                                            className="text-[10px] bg-gold-500/10 border border-gold-500/20 text-gold-400 px-2.5 py-1 rounded-lg hover:bg-gold-500 hover:text-white transition flex items-center gap-1"
-                                          >
-                                            <Award size={10} /> Avaliar
-                                          </button>
-                                        )}
-
-                                        {cand.status === 'aprovado' && (
-                                          <button
-                                            onClick={() => handleAbrirBancaModal(cand)}
-                                            className="text-[9px] border border-dark-50 text-ink-400 px-2 py-0.5 rounded hover:bg-dark-100 transition"
-                                          >
-                                            Ver Notas
-                                          </button>
-                                        )}
-
-                                        <button 
-                                          onClick={() => handleCancelarInscricao(cand.id)}
-                                          className="text-red-400 hover:text-red-300 p-1.5 transition"
-                                          title="Excluir Candidatura"
-                                        >
-                                          <Trash2 size={13} />
-                                        </button>
-                                      </div>
-                                    )}
-
-                                    {!isAdmin && (cand.status === 'pendente' || cand.status === 'apto') && (
-                                      <button
-                                        onClick={() => handleCancelarInscricao(cand.id)}
-                                        className="text-xs border border-red-500/30 text-red-400 px-2.5 py-1 rounded-lg hover:bg-red-500 hover:text-white transition-all"
-                                      >
-                                        Cancelar
-                                      </button>
-                                    )}
-
-                                    {!isAdmin && (cand.status === 'aprovado' || cand.status === 'reprovado') && db.examinadores && (
-                                      <div className="text-left bg-dark-400/80 p-2.5 rounded-xl border border-dark-50/50 max-w-[200px] ml-auto">
-                                        <p className="font-bold text-[9px] text-ink-600 uppercase tracking-wider mb-1">Notas da Banca</p>
-                                        <div className="grid grid-cols-3 gap-1 text-[10px] text-ink-200 font-mono mb-1">
-                                          <span>Técnica: {db.nota_tecnica}</span>
-                                          <span>Kata: {db.nota_kata}</span>
-                                          <span>Luta: {db.nota_combate}</span>
-                                        </div>
-                                        <p className="text-[10px] text-ink-650 italic line-clamp-2">"{db.parecer}"</p>
-                                      </div>
-                                    )}
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
+                    {/* Tab Navigation for Admin */}
+                    {isAdmin && (
+                      <div className="flex items-center gap-2 border-b border-dark-50/60 pb-3 mb-4">
+                        <button
+                          onClick={() => setActiveTabMap(prev => ({ ...prev, [exame.id]: 'lista' }))}
+                          className={`px-4 py-2 text-xs font-bold uppercase tracking-wider rounded-lg transition ${
+                            (activeTabMap[exame.id] || 'lista') === 'lista' ? 'bg-gold-500/10 text-gold-400 border border-gold-500/25' : 'text-ink-500 hover:text-ink-200'
+                          }`}
+                        >
+                          Lista de Candidatos
+                        </button>
+                        <button
+                          onClick={() => setActiveTabMap(prev => ({ ...prev, [exame.id]: 'bancadas' }))}
+                          className={`px-4 py-2 text-xs font-bold uppercase tracking-wider rounded-lg transition ${
+                            (activeTabMap[exame.id] || 'lista') === 'bancadas' ? 'bg-gold-500/10 text-gold-400 border border-gold-500/25' : 'text-ink-500 hover:text-ink-200'
+                          }`}
+                        >
+                          Painel de Bancadas & Fila
+                        </button>
                       </div>
                     )}
+
+                    {(!isAdmin || (activeTabMap[exame.id] || 'lista') === 'lista') && (
+                      candidatosDoExame.length === 0 ? (
+                        <p className="text-xs text-ink-600 italic">Nenhum candidato inscrito neste exame.</p>
+                      ) : (
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-left text-xs border-collapse">
+                            <thead>
+                              <tr className="border-b border-dark-50/60 text-ink-600 font-bold uppercase tracking-wider text-[10px]">
+                                <th className="pb-3">Candidato</th>
+                                {isAdmin && <th className="pb-3">Academia/Filial</th>}
+                                <th className="pb-3">Modalidade</th>
+                                <th className="pb-3">Pretensão</th>
+                                <th className="pb-3">Status Técnico</th>
+                                <th className="pb-3">Pagamento</th>
+                                <th className="pb-3 text-center">Status Final</th>
+                                <th className="pb-3 text-right">Ações</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {candidatosDoExame.map((cand) => {
+                                const db = cand.dados_banca || {};
+                                
+                                return (
+                                  <tr key={cand.id} className="border-b border-dark-50/20 hover:bg-white/[0.01] transition">
+                                    <td className="py-3.5 pr-2">
+                                      <p className="font-bold text-ink-100">{cand.atleta_nome}</p>
+                                      <p className="text-[10px] text-ink-650">{cand.atleta_telefone ? `(login) ${cand.atleta_telefone}` : cand.atleta_email}</p>
+                                    </td>
+                                    
+                                    {isAdmin && (
+                                      <td className="py-3.5 pr-2 text-ink-400 font-medium">
+                                        {cand.filial_nome || '—'}
+                                      </td>
+                                    )}
+
+                                    <td className="py-3.5 pr-2 text-ink-600">{cand.modalidade}</td>
+                                    
+                                    <td className="py-3.5 pr-2 font-bold text-gold-400">{cand.graduacao_pretendida}</td>
+                                    
+                                    <td className="py-3.5 pr-2">
+                                      <div className="flex items-center gap-2">
+                                        <span className={`w-2 h-2 rounded-full ${cand.autorizacao_tecnica ? 'bg-green-400' : 'bg-red-400'}`} />
+                                        <span className="font-semibold text-ink-300">
+                                          {cand.autorizacao_tecnica ? 'Autorizado' : 'Pendente'}
+                                        </span>
+                                        {isFilial && !cand.autorizacao_tecnica && (
+                                          <button 
+                                            onClick={() => handleAutorizarCandidato(cand.id, false)}
+                                            className="text-[10px] bg-green-500/10 border border-green-500/20 text-green-400 px-2 py-0.5 rounded hover:bg-green-500 hover:text-white transition"
+                                          >
+                                            Autorizar
+                                          </button>
+                                        )}
+                                      </div>
+                                    </td>
+
+                                    <td className="py-3.5 pr-2">
+                                      <div className="flex items-center gap-2">
+                                        <span className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold ${
+                                          cand.pagamento_status === 'pago' ? 'bg-green-500/15 text-green-400' :
+                                          cand.pagamento_status === 'isento' ? 'bg-blue-500/15 text-blue-400' :
+                                          'bg-red-500/15 text-red-400'
+                                        }`}>
+                                          {cand.pagamento_status}
+                                        </span>
+                                        
+                                        {isAdmin && cand.pagamento_status === 'pendente' && (
+                                          <div className="flex gap-1">
+                                            <button 
+                                              onClick={() => handleAtualizarPagamento(cand.id, 'pago')}
+                                              className="text-[9px] bg-green-500/20 text-green-300 border border-green-500/20 px-1.5 py-0.5 rounded hover:bg-green-500 hover:text-white transition"
+                                              title="Confirmar Pago"
+                                            >
+                                              Pago
+                                            </button>
+                                            <button 
+                                              onClick={() => handleAtualizarPagamento(cand.id, 'isento')}
+                                              className="text-[9px] bg-blue-500/20 text-blue-300 border border-blue-500/20 px-1.5 py-0.5 rounded hover:bg-blue-500 hover:text-white transition"
+                                              title="Confirmar Isento"
+                                            >
+                                              Isento
+                                            </button>
+                                          </div>
+                                        )}
+                                      </div>
+                                    </td>
+
+                                    <td className="py-3.5 pr-2 text-center">
+                                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                                        cand.status === 'aprovado' ? 'bg-green-500/15 text-green-400 border border-green-500/20' :
+                                        cand.status === 'reprovado' ? 'bg-red-500/15 text-red-400 border border-red-500/20' :
+                                        cand.status === 'inscrito' ? 'bg-blue-500/15 text-blue-400 border border-blue-500/20' :
+                                        cand.status === 'apto' ? 'bg-gold-500/15 text-gold-400 border border-gold-500/20' :
+                                        'bg-dark-400 text-ink-600 border border-dark-50/50'
+                                      }`}>
+                                        {cand.status}
+                                      </span>
+                                    </td>
+
+                                    <td className="py-3.5 text-right space-y-1">
+                                      {isAdmin && (
+                                        <div className="flex items-center justify-end gap-2">
+                                          {cand.status === 'apto' && (
+                                            <button
+                                              onClick={() => handleHomologarInscricao(cand.id)}
+                                              className="text-[10px] bg-brand-500/10 border border-brand-500/20 text-brand-400 px-2 py-1 rounded-lg hover:bg-brand-500 hover:text-white transition"
+                                            >
+                                              Homologar
+                                            </button>
+                                          )}
+                                          
+                                          {cand.status === 'inscrito' && (
+                                            <button
+                                              onClick={() => handleAbrirBancaModal(cand)}
+                                              className="text-[10px] bg-gold-500/10 border border-gold-500/20 text-gold-400 px-2.5 py-1 rounded-lg hover:bg-gold-500 hover:text-white transition flex items-center gap-1"
+                                            >
+                                              <Award size={10} /> Avaliar
+                                            </button>
+                                          )}
+
+                                          {cand.status === 'aprovado' && (
+                                            <button
+                                              onClick={() => handleAbrirBancaModal(cand)}
+                                              className="text-[9px] border border-dark-50 text-ink-400 px-2 py-0.5 rounded hover:bg-dark-100 transition"
+                                            >
+                                              Ver Notas
+                                            </button>
+                                          )}
+
+                                          <button 
+                                            onClick={() => handleCancelarInscricao(cand.id)}
+                                            className="text-red-400 hover:text-red-300 p-1.5 transition"
+                                            title="Excluir Candidatura"
+                                          >
+                                            <Trash2 size={13} />
+                                          </button>
+                                        </div>
+                                      )}
+
+                                      {!isAdmin && (cand.status === 'pendente' || cand.status === 'apto') && (
+                                        <button
+                                          onClick={() => handleCancelarInscricao(cand.id)}
+                                          className="text-xs border border-red-500/30 text-red-400 px-2.5 py-1 rounded-lg hover:bg-red-500 hover:text-white transition-all"
+                                        >
+                                          Cancelar
+                                        </button>
+                                      )}
+
+                                      {!isAdmin && (cand.status === 'aprovado' || cand.status === 'reprovado') && db.examinadores && (
+                                        <div className="text-left bg-dark-400/80 p-2.5 rounded-xl border border-dark-50/50 max-w-[200px] ml-auto">
+                                          <p className="font-bold text-[9px] text-ink-600 uppercase tracking-wider mb-1">Notas da Banca</p>
+                                          <div className="grid grid-cols-3 gap-1 text-[10px] text-ink-200 font-mono mb-1">
+                                            <span>Técnica: {db.nota_tecnica}</span>
+                                            <span>Kata: {db.nota_kata}</span>
+                                            <span>Luta: {db.nota_combate}</span>
+                                          </div>
+                                          <p className="text-[10px] text-ink-650 italic line-clamp-2">"{db.parecer}"</p>
+                                        </div>
+                                      )}
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      )
+                    )}
+
+                    {/* Bancadas Mode (Admin only) */}
+                    {isAdmin && (activeTabMap[exame.id] || 'lista') === 'bancadas' && (() => {
+                      const homologadosFila = candidatosDoExame.filter(
+                        c => c.status === 'inscrito' && !c.dados_banca?.bancada
+                      );
+
+                      const activeBenches = Array.from({ length: numBancadas }, (_, i) => `Bancada ${i + 1}`);
+
+                      return (
+                        <div className="space-y-6">
+                          {/* Controles de Configuração e Distribuição */}
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-dark-400/50 p-4 rounded-xl border border-white/[0.04]">
+                            <div className="flex items-center gap-3">
+                              <label className="text-xs text-ink-500 uppercase tracking-wider font-bold">Bancadas Ativas:</label>
+                              <select
+                                value={numBancadas}
+                                onChange={(e) => setNumBancadas(parseInt(e.target.value))}
+                                className="bg-dark-300 border border-dark-50 rounded-lg px-2.5 py-1.5 text-xs font-bold text-white outline-none focus:ring-1 focus:ring-brand-500"
+                              >
+                                <option value={1}>1 Bancada</option>
+                                <option value={2}>2 Bancadas</option>
+                                <option value={3}>3 Bancadas</option>
+                                <option value={4}>4 Bancadas</option>
+                              </select>
+                            </div>
+
+                            <div className="flex gap-2">
+                              <button
+                                type="button"
+                                onClick={() => handleLimparBancadas(exame.id)}
+                                disabled={distributing}
+                                className="px-4 py-2 border border-red-500/20 bg-red-500/5 text-red-400 rounded-lg text-xs font-bold uppercase tracking-wider hover:bg-red-500/10 transition disabled:opacity-40"
+                              >
+                                Limpar Bancadas
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDistribuirBancadas(exame.id)}
+                                disabled={distributing || homologadosFila.length === 0}
+                                className="px-4 py-2 bg-gradient-to-r from-gold-500 to-amber-600 text-white rounded-lg text-xs font-bold uppercase tracking-wider hover:scale-102 transition disabled:opacity-40"
+                              >
+                                {distributing ? 'Distribuindo...' : 'Chamar Próximos Alunos'}
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {/* Cards das Bancadas */}
+                            {activeBenches.map(benchName => {
+                              const alunosNaBanca = candidatosDoExame.filter(
+                                c => c.status === 'inscrito' && c.dados_banca?.bancada === benchName
+                              );
+
+                              const statusLabel = alunosNaBanca.length === 0 ? 'Vazia' : (alunosNaBanca.length === 3 ? 'Cheia' : 'Em Espera');
+                              const statusClass = alunosNaBanca.length === 0 ? 'border-white/[0.04] bg-dark-200/20 text-ink-600' : (alunosNaBanca.length === 3 ? 'border-green-500/25 bg-green-500/[0.02] text-green-400' : 'border-gold-500/25 bg-gold-500/[0.02] text-gold-400');
+
+                              return (
+                                <div key={benchName} className={`rounded-xl border p-4 flex flex-col justify-between min-h-[180px] transition hover:shadow-lg ${statusClass}`}>
+                                  <div>
+                                    <div className="flex items-center justify-between border-b border-white/[0.06] pb-2 mb-3">
+                                      <span className="font-bold text-xs uppercase tracking-widest font-cinzel text-ink-100">{benchName}</span>
+                                      <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-white/[0.04]">
+                                        {statusLabel} ({alunosNaBanca.length}/3)
+                                      </span>
+                                    </div>
+
+                                    {alunosNaBanca.length === 0 ? (
+                                      <p className="text-xs text-ink-650 italic py-4 text-center">Nenhum aluno alocado</p>
+                                    ) : (
+                                      <ul className="space-y-2">
+                                        {alunosNaBanca.map(cand => (
+                                          <li key={cand.id} className="flex items-center justify-between bg-dark-400/40 border border-white/[0.03] px-3 py-2 rounded-lg">
+                                            <div className="truncate pr-2">
+                                              <p className="font-bold text-xs text-ink-200 truncate">{cand.atleta_nome}</p>
+                                              <p className="text-[9px] text-ink-500 truncate">{cand.modalidade}</p>
+                                            </div>
+                                            <span className="text-[10px] font-bold text-gold-400 bg-gold-500/10 border border-gold-500/20 px-1.5 py-0.5 rounded shrink-0">
+                                              {cand.graduacao_pretendida}
+                                            </span>
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    )}
+                                  </div>
+
+                                  {alunosNaBanca.length > 0 && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleAbrirBancaColetivaModal(exame.id, benchName, alunosNaBanca)}
+                                      className="w-full mt-4 py-2 bg-white/[0.04] hover:bg-gold-500/10 border border-white/[0.06] hover:border-gold-500/20 text-ink-200 hover:text-gold-400 text-xs font-bold uppercase tracking-wider rounded-lg transition"
+                                    >
+                                      Avaliar Grupo ({benchName})
+                                    </button>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+
+                          {/* Fila de Espera */}
+                          <div className="bg-dark-300/30 border border-white/[0.03] p-4 rounded-xl">
+                            <h5 className="text-[10px] font-black uppercase tracking-[0.25em] text-gold-400 mb-3">Fila de Espera ({homologadosFila.length} alunos)</h5>
+                            {homologadosFila.length === 0 ? (
+                              <p className="text-xs text-ink-600 italic">Nenhum aluno na fila de espera.</p>
+                            ) : (
+                              <div className="flex flex-wrap gap-2">
+                                {homologadosFila.map(cand => (
+                                  <span key={cand.id} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-dark-400 border border-white/[0.04] text-xs text-ink-300">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-gold-500" />
+                                    <strong>{cand.atleta_nome}</strong>
+                                    <span className="text-[10px] text-ink-600 font-mono">({cand.graduacao_pretendida})</span>
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
                 )}
               </div>
@@ -911,6 +1315,31 @@ export default function ExamesPage() {
                   onChange={(e) => setBancaForm({ ...bancaForm, examinadores: e.target.value })}
                   className="w-full px-3.5 py-2.5 text-sm bg-dark-300 border border-dark-50 rounded-xl text-ink-100 outline-none focus:ring-1 focus:ring-brand-500 transition"
                 />
+                {blackBelts.length > 0 && (
+                  <div className="mt-2">
+                    <p className="text-[10px] font-bold text-ink-650 uppercase tracking-wider mb-1">Selecionar Faixas Pretas cadastrados:</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {blackBelts.map(bb => {
+                        const nameToToggle = bb.nome.startsWith('Sensei ') ? bb.nome : `Sensei ${bb.nome}`;
+                        const isSelected = (bancaForm.examinadores || '').split(',').map(s => s.trim()).includes(nameToToggle);
+                        return (
+                          <button
+                            key={bb.id}
+                            type="button"
+                            onClick={() => toggleExaminer(bb.nome, bancaForm.examinadores, false)}
+                            className={`px-2 py-1 rounded text-[10px] font-bold transition border ${
+                              isSelected 
+                                ? 'bg-gold-500/20 text-gold-400 border-gold-500/30 font-bold' 
+                                : 'bg-dark-400 text-ink-500 border-white/[0.03] hover:text-ink-200 hover:bg-dark-500'
+                            }`}
+                          >
+                            {bb.nome}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-3 gap-3">
@@ -1004,6 +1433,195 @@ export default function ExamesPage() {
                   className="btn-primary flex-1 py-2.5 rounded-xl bg-gradient-to-r from-gold-500 to-amber-600 text-white text-xs font-bold uppercase transition"
                 >
                   Salvar Resultado
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ==================== MODAL: BANCA COLETIVA (Admin) ==================== */}
+      {showBancaColetivaModal && bancadaSelecionada && (
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-dark-200 border border-dark-50 rounded-2xl w-full max-w-4xl p-6 relative animate-fade-in-scale max-h-[90vh] overflow-y-auto">
+            <h3 className="text-xl font-bold text-ink-100 font-cinzel mb-1 uppercase tracking-wider">{bancadaSelecionada} - Avaliação Coletiva</h3>
+            <p className="text-xs text-ink-650 mb-6">Lançamento de notas simultâneo para os atletas da bancada.</p>
+
+            <form onSubmit={handleSalvarBancaColetivaAvaliacao} className="space-y-6">
+              <div>
+                <label className="block text-xs font-bold text-ink-400 uppercase tracking-wider mb-1.5">Examinadores da Banca *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ex: Sensei Paulo, Sensei Marcos"
+                  value={bancaColetivaForm.examinadores}
+                  onChange={(e) => setBancaColetivaForm({ ...bancaColetivaForm, examinadores: e.target.value })}
+                  className="w-full px-3.5 py-2.5 text-sm bg-dark-300 border border-dark-50 rounded-xl text-ink-100 outline-none focus:ring-1 focus:ring-brand-500 transition"
+                />
+                {blackBelts.length > 0 && (
+                  <div className="mt-2">
+                    <p className="text-[10px] font-bold text-ink-650 uppercase tracking-wider mb-1">Selecionar Faixas Pretas cadastrados:</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {blackBelts.map(bb => {
+                        const nameToToggle = bb.nome.startsWith('Sensei ') ? bb.nome : `Sensei ${bb.nome}`;
+                        const isSelected = (bancaColetivaForm.examinadores || '').split(',').map(s => s.trim()).includes(nameToToggle);
+                        return (
+                          <button
+                            key={bb.id}
+                            type="button"
+                            onClick={() => toggleExaminer(bb.nome, bancaColetivaForm.examinadores, true)}
+                            className={`px-2 py-1 rounded text-[10px] font-bold transition border ${
+                              isSelected 
+                                ? 'bg-gold-500/20 text-gold-400 border-gold-500/30 font-bold' 
+                                : 'bg-dark-400 text-ink-500 border-white/[0.03] hover:text-ink-200 hover:bg-dark-500'
+                            }`}
+                          >
+                            {bb.nome}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {candidatos.filter(c => c.exame_id === exameSelecionadoParaBanca && c.dados_banca?.bancada === bancadaSelecionada).map(cand => {
+                  const formAluno = bancaColetivaForm.alunos[cand.id] || {
+                    nota_tecnica: '',
+                    nota_kata: '',
+                    nota_combate: '',
+                    parecer: '',
+                    aprovado: true
+                  };
+
+                  const updateAlunoField = (field, val) => {
+                    setBancaColetivaForm(prev => ({
+                      ...prev,
+                      alunos: {
+                        ...prev.alunos,
+                        [cand.id]: {
+                          ...prev.alunos[cand.id],
+                          [field]: val
+                        }
+                      }
+                    }));
+                  };
+
+                  return (
+                    <div key={cand.id} className="bg-dark-400/50 border border-white/[0.04] p-4 rounded-xl space-y-4">
+                      <div className="border-b border-white/[0.06] pb-2 flex items-center justify-between">
+                        <div>
+                          <p className="font-bold text-xs text-ink-100 truncate max-w-[150px]">{cand.atleta_nome}</p>
+                          <p className="text-[9px] text-ink-500 font-medium">Pretensão: <span className="text-gold-400 font-bold">{cand.graduacao_pretendida}</span></p>
+                        </div>
+                        <span className="w-8 h-8 rounded-full bg-gold-500/10 flex items-center justify-center text-xs text-gold-400 font-black border border-gold-500/20 font-cinzel">
+                          {cand.atleta_nome?.charAt(0)?.toUpperCase()}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-2">
+                        <div>
+                          <label className="block text-[9px] font-bold text-ink-500 uppercase tracking-wider mb-1">Nota Téc.</label>
+                          <input
+                            type="number"
+                            step="0.1"
+                            min="0"
+                            max="10"
+                            required
+                            placeholder="0.0"
+                            value={formAluno.nota_tecnica}
+                            onChange={(e) => updateAlunoField('nota_tecnica', e.target.value)}
+                            className="w-full px-2 py-1.5 text-xs bg-dark-300 border border-dark-50 rounded-lg text-ink-100 outline-none focus:ring-1 focus:ring-brand-500 font-mono"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[9px] font-bold text-ink-500 uppercase tracking-wider mb-1">Kata</label>
+                          <input
+                            type="number"
+                            step="0.1"
+                            min="0"
+                            max="10"
+                            required
+                            placeholder="0.0"
+                            value={formAluno.nota_kata}
+                            onChange={(e) => updateAlunoField('nota_kata', e.target.value)}
+                            className="w-full px-2 py-1.5 text-xs bg-dark-300 border border-dark-50 rounded-lg text-ink-100 outline-none focus:ring-1 focus:ring-brand-500 font-mono"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[9px] font-bold text-ink-500 uppercase tracking-wider mb-1">Luta</label>
+                          <input
+                            type="number"
+                            step="0.1"
+                            min="0"
+                            max="10"
+                            required
+                            placeholder="0.0"
+                            value={formAluno.nota_combate}
+                            onChange={(e) => updateAlunoField('nota_combate', e.target.value)}
+                            className="w-full px-2 py-1.5 text-xs bg-dark-300 border border-dark-50 rounded-lg text-ink-100 outline-none focus:ring-1 focus:ring-brand-500 font-mono"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-[9px] font-bold text-ink-500 uppercase tracking-wider mb-1.5">Parecer / Comentários</label>
+                        <textarea
+                          placeholder="Opinião da banca..."
+                          value={formAluno.parecer}
+                          onChange={(e) => updateAlunoField('parecer', e.target.value)}
+                          className="w-full px-2.5 py-1.5 text-xs bg-dark-300 border border-dark-50 rounded-lg text-ink-100 outline-none focus:ring-1 focus:ring-brand-500 h-14 resize-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[9px] font-bold text-ink-500 uppercase tracking-wider mb-1">Resultado Final</label>
+                        <div className="flex gap-4 mt-1">
+                          <label className="flex items-center gap-1.5 cursor-pointer text-xs font-semibold text-green-400">
+                            <input
+                              type="radio"
+                              name={`aprovado-${cand.id}`}
+                              checked={formAluno.aprovado === true}
+                              onChange={() => updateAlunoField('aprovado', true)}
+                              className="accent-green-500"
+                            />
+                            Aprovado
+                          </label>
+                          <label className="flex items-center gap-1.5 cursor-pointer text-xs font-semibold text-red-400">
+                            <input
+                              type="radio"
+                              name={`aprovado-${cand.id}`}
+                              checked={formAluno.aprovado === false}
+                              onChange={() => updateAlunoField('aprovado', false)}
+                              className="accent-red-500"
+                            />
+                            Reprovado
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="flex gap-3 pt-4 border-t border-dark-50">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowBancaColetivaModal(false);
+                    setBancadaSelecionada(null);
+                    setExameSelecionadoParaBanca(null);
+                  }}
+                  className="btn-outline flex-1 py-2.5 rounded-xl border border-dark-50 text-xs font-bold uppercase text-ink-500 hover:text-ink-200 transition"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="btn-primary flex-1 py-2.5 rounded-xl bg-gradient-to-r from-gold-500 to-amber-600 text-white text-xs font-bold uppercase transition"
+                >
+                  Salvar Resultados da Bancada
                 </button>
               </div>
             </form>

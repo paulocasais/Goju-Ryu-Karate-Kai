@@ -20,7 +20,7 @@ export async function PATCH(request, { params }) {
                 .from('exames_candidatos')
                 .select(`
                     *,
-                    atletas:atleta_id (filial_id)
+                atletas!atleta_id (filial_id)
                 `)
                 .eq('id', id)
                 .single(),
@@ -55,7 +55,7 @@ export async function PATCH(request, { params }) {
             // Filiais só podem atualizar autorizacao_tecnica
             if (body.autorizacao_tecnica !== undefined) {
                 updatePayload.autorizacao_tecnica = body.autorizacao_tecnica
-                
+
                 // Se foi dada a autorização técnica, muda status para 'apto' se estivesse 'pendente'
                 if (body.autorizacao_tecnica === true && candidato.status === 'pendente') {
                     updatePayload.status = 'apto'
@@ -174,11 +174,11 @@ export async function PATCH(request, { params }) {
             .eq('id', id)
             .select(`
                 *,
-                exames:exame_id (*),
-                atletas:atleta_id (
+            exames!exame_id (*),
+            atletas!atleta_id (
                     *,
-                    profiles:id (nome, email, telefone),
-                    filiais:filial_id (nome)
+                profiles!id (nome, email, telefone),
+                filiais!filial_id (nome)
                 )
             `)
             .single()
@@ -223,7 +223,7 @@ export async function DELETE(request, { params }) {
                 .from('exames_candidatos')
                 .select(`
                     *,
-                    atletas:atleta_id (filial_id)
+                    atletas!atleta_id (filial_id)
                 `)
                 .eq('id', id)
                 .single(),

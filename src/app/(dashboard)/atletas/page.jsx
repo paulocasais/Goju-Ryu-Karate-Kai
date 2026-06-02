@@ -22,6 +22,7 @@ import {
   Pencil,
   MapPin,
   Home,
+  Building2,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { validateCPF } from '@/lib/utils';
@@ -105,6 +106,18 @@ function normalizarModalidades(modalidades = []) {
     .filter((item) => item.modalidade || item.graduacao || item.data_graduacao);
 }
 
+function calcularIdade(dataNascimento) {
+  if (!dataNascimento) return null;
+  const hoje = new Date();
+  const nascimento = new Date(dataNascimento);
+  let idade = hoje.getFullYear() - nascimento.getFullYear();
+  const m = hoje.getMonth() - nascimento.getMonth();
+  if (m < 0 || (m === 0 && hoje.getDate() < nascimento.getDate())) {
+    idade--;
+  }
+  return idade;
+}
+
 function criarEstadoInicial(atleta = null) {
   return {
     cpf: atleta?.cpf || '',
@@ -117,6 +130,11 @@ function criarEstadoInicial(atleta = null) {
     cidade: atleta?.cidade || '',
     endereco: atleta?.endereco || '',
     nome_professor: atleta?.nome_professor || '',
+    filial_id: atleta?.filial_id || '',
+    responsavel_nome: atleta?.responsavel_nome || '',
+    responsavel_cpf: atleta?.responsavel_cpf ? formatarCPF(atleta.responsavel_cpf) : '',
+    responsavel_email: atleta?.responsavel_email || '',
+    responsavel_telefone: atleta?.responsavel_telefone ? formatarTelefone(atleta.responsavel_telefone) : '',
     modalidades: normalizarModalidades(atleta?.modalidades).length > 0
       ? normalizarModalidades(atleta?.modalidades)
       : [criarModalidade()],
@@ -132,19 +150,24 @@ function ResumoModalidades({ modalidades }) {
   const lista = normalizarModalidades(modalidades);
 
   if (lista.length === 0) {
-    return <span className="text-ink-200">—</span>;
+    return <span className="text-ink-500 italic text-xs">Nenhuma modalidade registrada</span>;
   }
 
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
       {lista.map((item, index) => (
         <div
           key={`${item.modalidade}-${item.graduacao}-${item.data_graduacao}-${index}`}
-          className="rounded-xl border border-cobalt-500/20 bg-cobalt-500/10 px-3 py-2"
+          className="relative overflow-hidden rounded-xl border border-white/[0.06] bg-dark-100/40 p-3 hover:border-gold-500/20 hover:bg-dark-100/70 transition-all duration-300 group"
         >
-          <p className="text-xs font-semibold text-cobalt-300 uppercase tracking-wide">{item.modalidade}</p>
-          <p className="text-sm text-ink-100">{item.graduacao}</p>
-          <p className="text-xs text-ink-500 mt-0.5">{formatarData(item.data_graduacao)}</p>
+          <div className="absolute top-0 left-0 w-[2px] h-full bg-gradient-to-b from-gold-500 to-amber-600 opacity-70 group-hover:h-full transition-all duration-300" />
+          <div className="pl-2">
+            <p className="text-[10px] font-black text-gold-400 uppercase tracking-[0.1em]">{item.modalidade}</p>
+            <p className="text-sm font-bold text-ink-100 mt-0.5">{item.graduacao}</p>
+            <p className="text-[10px] text-ink-500 mt-1 flex items-center gap-1">
+              <Calendar size={10} className="text-ink-600" /> {formatarData(item.data_graduacao)}
+            </p>
+          </div>
         </div>
       ))}
     </div>
@@ -254,12 +277,23 @@ function CampoModalidades({ modalidades, onChange, erro }) {
 }
 
 function FormAtleta({ modo, atleta = null, onSalvo, onCancelar }) {
+  const { isAdmin } = useAuth();
+  const [filiais, setFiliais] = useState([]);
   const [form, setForm] = useState(() => criarEstadoInicial(atleta));
   const [cpfErro, setCpfErro] = useState('');
   const [modalidadesErro, setModalidadesErro] = useState('');
   const [loading, setLoading] = useState(false);
   const [erro, setErro] = useState('');
   const [resultado, setResultado] = useState(null);
+
+  useEffect(() => {
+    if (isAdmin) {
+      fetch('/api/filiais')
+        .then((res) => res.json())
+        .then((data) => setFiliais(data.filiais || []))
+        .catch((err) => console.error('Erro ao buscar filiais:', err));
+    }
+  }, [isAdmin]);
 
   const resetNovoCadastro = () => {
     setForm(criarEstadoInicial(null));
@@ -325,6 +359,27 @@ function FormAtleta({ modo, atleta = null, onSalvo, onCancelar }) {
     setLoading(true);
 
     try {
+      const idade = calcularIdade(form.data_nascimento);
+      const menor = idade !== null && idade < 18;
+      if (menor) {
+        if (!form.responsavel_nome?.trim()) {
+          toast.error('Nome do responsável é obrigatório para atletas menores.');
+          return;
+        }
+        if (!validateCPF(form.responsavel_cpf)) {
+          toast.error('CPF do responsável inválido. Por favor, verifique.');
+          return;
+        }
+        if (!form.responsavel_email?.trim()) {
+          toast.error('E-mail do responsável é obrigatório para atletas menores.');
+          return;
+        }
+        if (!form.responsavel_telefone?.trim()) {
+          toast.error('Telefone do responsável é obrigatório para atletas menores.');
+          return;
+        }
+      }
+
       const payload = {
         cpf: form.cpf,
         nome: form.nome,
@@ -336,7 +391,12 @@ function FormAtleta({ modo, atleta = null, onSalvo, onCancelar }) {
         cidade: form.cidade,
         endereco: form.endereco,
         nome_professor: form.nome_professor,
+        filial_id: form.filial_id || null,
         modalidades: normalizarModalidades(form.modalidades),
+        responsavel_nome: menor ? form.responsavel_nome.trim() : null,
+        responsavel_cpf: menor ? form.responsavel_cpf.trim() : null,
+        responsavel_email: menor ? form.responsavel_email.trim() : null,
+        responsavel_telefone: menor ? telefoneNumeros(form.responsavel_telefone) : null,
       };
 
       const url = modo === 'novo' ? '/api/atletas' : `/api/atletas/${atleta.id}`;
@@ -367,11 +427,21 @@ function FormAtleta({ modo, atleta = null, onSalvo, onCancelar }) {
     }
   };
 
+  const idade = calcularIdade(form.data_nascimento);
+  const menor = idade !== null && idade < 18;
+  const responsavelValido = !menor || (
+    form.responsavel_nome?.trim() &&
+    cpfNumeros(form.responsavel_cpf).length === 11 &&
+    form.responsavel_email?.trim() &&
+    telefoneNumeros(form.responsavel_telefone).length >= 10
+  );
+
   const podeEnviar = (
     form.nome.trim() &&
     (modo === 'editar' || (cpfNumeros(form.cpf).length === 11 && !cpfErro)) &&
     telefoneNumeros(form.telefone).length >= 10 &&
     form.email.trim() &&
+    responsavelValido &&
     !loading
   );
 
@@ -409,13 +479,14 @@ function FormAtleta({ modo, atleta = null, onSalvo, onCancelar }) {
   }
 
   return (
-    <div className="card p-6 shadow-2xl bg-dark-300 border border-white/[0.08] max-h-[90vh] overflow-y-auto w-full">
-      <div className="flex items-center justify-between mb-5">
+    <div className="relative overflow-hidden rounded-3xl bg-dark-200/95 border border-white/[0.08] shadow-2xl backdrop-blur-2xl p-6 sm:p-8 max-h-[90vh] overflow-y-auto w-full">
+      <div className="h-[3px] absolute top-0 left-0 right-0 tricolor-bar" />
+      <div className="flex items-center justify-between mb-6">
         <div>
-          <h3 className="text-lg font-semibold text-ink-100">{modo === 'novo' ? 'Novo Atleta' : 'Editar Atleta'}</h3>
-          {modo === 'editar' && <p className="text-xs text-ink-500 font-mono mt-0.5">{atleta?.cpf}</p>}
+          <h3 className="text-xl font-black font-cinzel text-ink-100 uppercase tracking-wider">{modo === 'novo' ? 'Novo Atleta' : 'Editar Atleta'}</h3>
+          {modo === 'editar' && <p className="text-xs text-ink-500 font-mono mt-1">{atleta?.cpf}</p>}
         </div>
-        <button onClick={onCancelar} className="p-2 rounded-lg hover:bg-dark-100 text-ink-400 transition">
+        <button onClick={onCancelar} className="p-2 rounded-xl hover:bg-white/[0.06] text-ink-400 hover:text-ink-200 transition">
           <X size={18} />
         </button>
       </div>
@@ -594,6 +665,84 @@ function FormAtleta({ modo, atleta = null, onSalvo, onCancelar }) {
           />
         </div>
 
+        {isAdmin && (
+          <div>
+            <label className="block text-sm font-medium text-ink-300 mb-1.5">
+              Filial / Dojo
+            </label>
+            <select
+              className="input-field"
+              value={form.filial_id}
+              onChange={(e) => atualizarCampo('filial_id', e.target.value)}
+            >
+              <option value="">Nenhuma / Atleta Individual</option>
+              {filiais.map((f) => (
+                <option key={f.id} value={f.id}>
+                  {f.nome}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {/* Bloco: Responsável Legal (Visível apenas para menores de idade) */}
+        {(() => {
+          const idade = calcularIdade(form.data_nascimento);
+          return idade !== null && idade < 18 && (
+            <div className="rounded-2xl border border-white/[0.06] bg-dark-400/60 p-4 space-y-4">
+              <h4 className="text-xs uppercase tracking-[0.2em] text-gold-400 font-bold">Responsável Legal (Menor de Idade)</h4>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-ink-500 uppercase tracking-wider mb-1.5">Nome do Responsável *</label>
+                  <input
+                    required
+                    className="input-field"
+                    placeholder="Nome completo do responsável"
+                    value={form.responsavel_nome}
+                    onChange={(e) => atualizarCampo('responsavel_nome', e.target.value)}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-ink-500 uppercase tracking-wider mb-1.5">CPF do Responsável *</label>
+                  <input
+                    required
+                    className="input-field font-mono"
+                    placeholder="000.000.000-00"
+                    value={form.responsavel_cpf}
+                    onChange={(e) => atualizarCampo('responsavel_cpf', formatarCPF(e.target.value))}
+                    maxLength={14}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-ink-500 uppercase tracking-wider mb-1.5">E-mail do Responsável *</label>
+                  <input
+                    required
+                    type="email"
+                    className="input-field"
+                    placeholder="email@exemplo.com"
+                    value={form.responsavel_email}
+                    onChange={(e) => atualizarCampo('responsavel_email', e.target.value)}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-ink-500 uppercase tracking-wider mb-1.5">Telefone do Responsável *</label>
+                  <input
+                    required
+                    className="input-field font-mono"
+                    placeholder="(00) 00000-0000"
+                    value={form.responsavel_telefone}
+                    onChange={(e) => atualizarCampo('responsavel_telefone', formatarTelefone(e.target.value))}
+                  />
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
         <div className="flex gap-3 pt-2">
           <button type="button" onClick={onCancelar} className="btn-outline flex-1">
             Cancelar
@@ -618,121 +767,197 @@ function FormAtleta({ modo, atleta = null, onSalvo, onCancelar }) {
 function LinhaAtleta({ atleta, onDeletar, onEditar }) {
   const [expandido, setExpandido] = useState(false);
   const [confirmando, setConfirmando] = useState(false);
+  
+  const modalidadePrincipal = atleta.modalidades?.[0];
 
   return (
-    <div className="border border-dark-50 rounded-xl overflow-hidden">
+    <div className={`group/card border border-white/[0.04] bg-dark-200/30 backdrop-blur-sm rounded-2xl overflow-hidden transition-all duration-300 ${expandido ? 'border-gold-500/20 bg-dark-200/60 shadow-xl' : 'hover:border-white/[0.08] hover:bg-dark-200/50'}`}>
       <button
-        className="w-full flex items-center gap-4 p-4 hover:bg-dark-400/50 transition text-left"
+        className="w-full flex items-center gap-4 p-5 hover:bg-white/[0.01] transition text-left"
         onClick={() => setExpandido(!expandido)}
       >
-        <div className="w-9 h-9 bg-brand-500/10 rounded-full flex items-center justify-center shrink-0">
-          <span className="text-sm font-bold text-brand-400">
+        <div className="w-10 h-10 bg-gradient-to-br from-gold-500/15 to-gold-700/5 border border-gold-500/25 rounded-xl flex items-center justify-center shrink-0 shadow-inner group-hover/card:border-gold-500/40 transition-colors">
+          <span className="text-sm font-black text-gold-400 font-cinzel">
             {atleta.nome?.charAt(0)?.toUpperCase() ?? '?'}
           </span>
         </div>
+        
         <div className="flex-1 min-w-0">
-          <p className="font-medium text-ink-100 truncate">{atleta.nome}</p>
-          <p className="text-sm text-ink-400">{formatarTelefone(atleta.telefone || '')}</p>
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className="font-bold text-ink-100 group-hover/card:text-gold-400 transition-colors duration-300">{atleta.nome}</p>
+            {modalidadePrincipal?.graduacao && (
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-gold-500/10 text-gold-400 border border-gold-500/20">
+                {modalidadePrincipal.graduacao}
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-3 mt-1 text-xs text-ink-500">
+            <span className="flex items-center gap-1.5"><Phone size={12} className="text-ink-600" /> {formatarTelefone(atleta.telefone || '')}</span>
+            <span className="hidden sm:inline text-ink-700">·</span>
+            <span className="hidden sm:inline font-mono text-ink-600">{atleta.cpf}</span>
+          </div>
         </div>
-        <div className="text-xs text-ink-500 hidden sm:block">{atleta.cpf}</div>
-        {expandido
-          ? <ChevronUp size={16} className="text-ink-500 shrink-0" />
-          : <ChevronDown size={16} className="text-ink-500 shrink-0" />
-        }
+        
+        <div className="text-xs text-ink-600 font-mono hidden sm:block bg-white/[0.02] border border-white/[0.04] px-2.5 py-1 rounded-lg">{atleta.cpf}</div>
+        
+        <div className="p-1 rounded-lg hover:bg-white/[0.05] transition">
+          {expandido
+            ? <ChevronUp size={16} className="text-ink-400 shrink-0" />
+            : <ChevronDown size={16} className="text-ink-400 shrink-0" />
+          }
+        </div>
       </button>
 
       {expandido && (
-        <div className="px-4 pb-4 border-t border-dark-50 pt-4 bg-dark-400/30">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 text-sm">
-            <div>
-              <span className="text-ink-500 text-xs uppercase tracking-wider block mb-0.5">Email</span>
-              <span className="text-ink-200">{atleta.email || '—'}</span>
+        <div className="px-5 pb-5 border-t border-white/[0.04] pt-5 bg-dark-250/10">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-5">
+            {/* Col 1: Perfil */}
+            <div className="space-y-3 bg-dark-300/40 p-4 rounded-xl border border-white/[0.03]">
+              <h4 className="text-[10px] font-black uppercase tracking-[0.25em] text-gold-400 flex items-center gap-1.5">
+                <User size={12} /> Contato e Perfil
+              </h4>
+              <div className="space-y-2 text-xs text-ink-300">
+                <div>
+                  <span className="text-[9px] font-black uppercase tracking-wider text-ink-600 block">E-mail</span>
+                  <span className="font-semibold text-ink-200 block truncate">{atleta.email || '—'}</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <span className="text-[9px] font-black uppercase tracking-wider text-ink-600 block">Sexo</span>
+                    <span className="font-semibold text-ink-200">{{ M: 'Masculino', F: 'Feminino', Outro: 'Outro' }[atleta.sexo] ?? '—'}</span>
+                  </div>
+                  <div>
+                    <span className="text-[9px] font-black uppercase tracking-wider text-ink-600 block">Nascimento</span>
+                    <span className="font-semibold text-ink-200">{formatarData(atleta.data_nascimento)}</span>
+                  </div>
+                </div>
+              </div>
             </div>
-            <div>
-              <span className="text-ink-500 text-xs uppercase tracking-wider block mb-0.5">Sexo</span>
-              <span className="text-ink-200">
-                {{ M: 'Masculino', F: 'Feminino', Outro: 'Outro' }[atleta.sexo] ?? '—'}
-              </span>
+
+            {/* Col 2: Filiação */}
+            <div className="space-y-3 bg-dark-300/40 p-4 rounded-xl border border-white/[0.03]">
+              <h4 className="text-[10px] font-black uppercase tracking-[0.25em] text-gold-400 flex items-center gap-1.5">
+                <Building2 size={12} /> Filiação
+              </h4>
+              <div className="space-y-2 text-xs text-ink-300">
+                <div>
+                  <span className="text-[9px] font-black uppercase tracking-wider text-ink-600 block">Filial / Dojo</span>
+                  <span className="font-bold text-ink-200 block truncate">{atleta.filial_nome || 'Atleta Individual'}</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <span className="text-[9px] font-black uppercase tracking-wider text-ink-600 block">Professor</span>
+                    <span className="font-semibold text-ink-200 block truncate">{atleta.nome_professor || '—'}</span>
+                  </div>
+                  <div>
+                    <span className="text-[9px] font-black uppercase tracking-wider text-ink-600 block">Cadastro</span>
+                    <span className="font-semibold text-ink-200">{new Date(atleta.created_at).toLocaleDateString('pt-BR')}</span>
+                  </div>
+                </div>
+              </div>
             </div>
-            <div>
-              <span className="text-ink-500 text-xs uppercase tracking-wider block mb-0.5">Nascimento</span>
-              <span className="text-ink-200">{formatarData(atleta.data_nascimento)}</span>
-            </div>
-            <div>
-              <span className="text-ink-500 text-xs uppercase tracking-wider block mb-0.5">Filial</span>
-              <span className="text-ink-200">{atleta.filial_nome || '—'}</span>
-            </div>
-            <div>
-              <span className="text-ink-500 text-xs uppercase tracking-wider block mb-0.5">Professor</span>
-              <span className="text-ink-200">{atleta.nome_professor || '—'}</span>
-            </div>
-            <div>
-              <span className="text-ink-500 text-xs uppercase tracking-wider block mb-0.5">Cadastro</span>
-              <span className="text-ink-200">{new Date(atleta.created_at).toLocaleDateString('pt-BR')}</span>
+
+            {/* Col 3: Localização */}
+            <div className="space-y-3 bg-dark-300/40 p-4 rounded-xl border border-white/[0.03]">
+              <h4 className="text-[10px] font-black uppercase tracking-[0.25em] text-gold-400 flex items-center gap-1.5">
+                <MapPin size={12} /> Localização
+              </h4>
+              <div className="space-y-2 text-xs text-ink-300">
+                <div>
+                  <span className="text-[9px] font-black uppercase tracking-wider text-ink-600 block">Cidade / UF</span>
+                  <span className="font-semibold text-ink-200 block">{atleta.cidade || atleta.uf ? `${atleta.cidade || '—'}${atleta.uf ? ` / ${atleta.uf}` : ''}` : '—'}</span>
+                </div>
+                <div>
+                  <span className="text-[9px] font-black uppercase tracking-wider text-ink-600 block">Endereço</span>
+                  <span className="font-semibold text-ink-250 block leading-relaxed truncate" title={atleta.endereco}>{atleta.endereco || '—'}</span>
+                </div>
+              </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 text-sm">
-            <div>
-              <span className="text-ink-500 text-xs uppercase tracking-wider block mb-1">Endereco</span>
-              <div className="flex items-start gap-2 text-ink-200">
-                <Home size={14} className="mt-0.5 text-ink-500 shrink-0" />
-                <span>{atleta.endereco || '—'}</span>
+          {((calcularIdade(atleta.data_nascimento) !== null && calcularIdade(atleta.data_nascimento) < 18) || atleta.responsavel_nome) && (
+            <div className="mb-5 bg-dark-300/40 p-4 rounded-xl border border-white/[0.03] space-y-3">
+              <h4 className="text-[10px] font-black uppercase tracking-[0.25em] text-gold-400 flex items-center gap-1.5">
+                <User size={12} /> Responsável Legal (Menor de Idade)
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 text-xs text-ink-300">
+                <div>
+                  <span className="text-[9px] font-black uppercase tracking-wider text-ink-600 block">Nome do Responsável</span>
+                  <span className="font-bold text-ink-200 block truncate">{atleta.responsavel_nome || '—'}</span>
+                </div>
+                <div>
+                  <span className="text-[9px] font-black uppercase tracking-wider text-ink-600 block">CPF</span>
+                  <span className="font-semibold text-ink-200 block font-mono">{atleta.responsavel_cpf || '—'}</span>
+                </div>
+                <div>
+                  <span className="text-[9px] font-black uppercase tracking-wider text-ink-600 block">E-mail</span>
+                  <span className="font-semibold text-ink-200 block truncate">{atleta.responsavel_email || '—'}</span>
+                </div>
+                <div>
+                  <span className="text-[9px] font-black uppercase tracking-wider text-ink-600 block">Telefone</span>
+                  <span className="font-semibold text-ink-200 block">{atleta.responsavel_telefone ? formatarTelefone(atleta.responsavel_telefone) : '—'}</span>
+                </div>
               </div>
             </div>
-            <div>
-              <span className="text-ink-500 text-xs uppercase tracking-wider block mb-1">Cidade / UF</span>
-              <div className="flex items-start gap-2 text-ink-200">
-                <MapPin size={14} className="mt-0.5 text-ink-500 shrink-0" />
-                <span>{atleta.cidade || atleta.uf ? `${atleta.cidade || '—'}${atleta.uf ? ` / ${atleta.uf}` : ''}` : '—'}</span>
-              </div>
-            </div>
-          </div>
+          )}
 
-          <div className="mb-4">
-            <span className="text-ink-500 text-xs uppercase tracking-wider block mb-2">Modalidades</span>
+          <div className="mb-5 bg-dark-300/20 p-4 rounded-xl border border-white/[0.03]">
+            <span className="text-[10px] font-black uppercase tracking-[0.25em] text-gold-400 block mb-3">Modalidades</span>
             <ResumoModalidades modalidades={atleta.modalidades} />
           </div>
 
           {atleta.senha_temporaria && (
-            <div className="mb-4 bg-dark-500/50 border border-gold-500/20 p-3 rounded-lg text-sm flex items-center justify-between">
+            <div className="mb-5 bg-gold-500/[0.02] border border-gold-500/15 p-4 rounded-xl text-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-pulse">
               <div className="flex items-center gap-2.5">
-                <Key size={14} className="text-gold-400" />
-                <span className="text-ink-300">Senha temporaria pendente:</span>
-                <strong className="text-gold-400 font-mono tracking-wider text-base">{atleta.senha_temporaria}</strong>
+                <div className="w-8 h-8 rounded-lg bg-gold-500/10 border border-gold-500/20 flex items-center justify-center text-gold-400">
+                  <Key size={14} />
+                </div>
+                <div>
+                  <span className="text-ink-400 text-[10px] block uppercase tracking-wider">Senha temporária pendente</span>
+                  <strong className="text-gold-400 font-mono tracking-wider text-base">{atleta.senha_temporaria}</strong>
+                </div>
               </div>
-              <p className="text-[10px] text-ink-500 hidden sm:block">Aguardando troca pelo atleta</p>
+              <p className="text-[10px] text-ink-600 max-w-xs sm:text-right">
+                O atleta usará este código para realizar o primeiro acesso ao sistema.
+              </p>
             </div>
           )}
 
-          <div className="flex items-center gap-4">
-            {!confirmando ? (
-              <>
-                <button
-                  onClick={() => onEditar(atleta)}
-                  className="flex items-center gap-2 text-sm text-gold-400 hover:text-gold-300 transition font-medium"
-                >
-                  <Pencil size={14} /> Editar dados
-                </button>
-                <div className="w-px h-3 bg-white/10" />
-                <button
-                  onClick={() => setConfirmando(true)}
-                  className="flex items-center gap-2 text-sm text-brand-400 opacity-60 hover:opacity-100 transition"
-                >
-                  <Trash2 size={14} /> Remover atleta
-                </button>
-              </>
-            ) : (
-              <div className="flex items-center gap-3">
-                <p className="text-sm text-ink-300">Confirmar remocao?</p>
-                <button onClick={() => onDeletar(atleta.id)} className="text-sm text-brand-400 font-medium hover:text-brand-300">
-                  Sim, remover
-                </button>
-                <button onClick={() => setConfirmando(false)} className="text-sm text-ink-500">
-                  Cancelar
-                </button>
-              </div>
-            )}
+          <div className="flex items-center justify-between border-t border-white/[0.04] pt-4 mt-5">
+            <div className="flex items-center gap-4">
+              {!confirmando ? (
+                <>
+                  <button
+                    onClick={() => onEditar(atleta)}
+                    className="flex items-center gap-1.5 text-xs font-bold text-gold-400 hover:text-gold-300 transition uppercase tracking-wider"
+                  >
+                    <Pencil size={12} /> Editar dados
+                  </button>
+                  <div className="w-px h-3 bg-white/10" />
+                  <button
+                    onClick={() => setConfirmando(true)}
+                    className="flex items-center gap-1.5 text-xs font-bold text-brand-400 hover:text-brand-300 transition"
+                  >
+                    <Trash2 size={12} /> Remover atleta
+                  </button>
+                </>
+              ) : (
+                <div className="flex items-center gap-3 bg-brand-900/10 border border-brand-500/20 px-3.5 py-1.5 rounded-lg text-xs">
+                  <p className="text-ink-200">Confirmar exclusão?</p>
+                  <button onClick={() => onDeletar(atleta.id)} className="text-brand-400 font-bold hover:text-brand-300 uppercase tracking-wider">
+                    Sim, excluir
+                  </button>
+                  <span className="text-ink-700">|</span>
+                  <button onClick={() => setConfirmando(false)} className="text-ink-400 hover:text-ink-300 font-semibold uppercase tracking-wider">
+                    Cancelar
+                  </button>
+                </div>
+              )}
+            </div>
+            
+            <div className="text-[9px] font-black uppercase tracking-widest text-ink-600 bg-white/[0.02] border border-white/[0.04] px-2 py-0.5 rounded">
+              {normalizarModalidades(atleta.modalidades).length} modalidade(s)
+            </div>
           </div>
         </div>
       )}
@@ -791,28 +1016,43 @@ export default function AtletasPage() {
   });
 
   return (
-    <main className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-8 w-full">
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-2xl font-bold text-ink-100">Atletas</h1>
-          <p className="text-ink-400 text-sm mt-1">
-            {atletas.length} atleta{atletas.length !== 1 ? 's' : ''} cadastrado{atletas.length !== 1 ? 's' : ''}
-          </p>
+    <main className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6 w-full relative">
+      {/* Hero Banner Premium */}
+      <div className="animate-fade-in-up relative overflow-hidden bg-gradient-to-br from-brand-900/15 via-dark-200 to-dark-200 border border-brand-500/10 rounded-3xl p-6 sm:p-8 shadow-xl">
+        <div className="absolute inset-0 bg-arena-grid opacity-[0.08] pointer-events-none" />
+        <div className="absolute top-0 right-0 w-96 h-full bg-gradient-to-l from-brand-500/[0.04] to-transparent pointer-events-none" />
+        <div className="absolute -top-20 -right-20 w-64 h-64 bg-brand-500/5 rounded-full blur-3xl pointer-events-none animate-blob" />
+        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 bg-gradient-to-br from-brand-500/25 to-brand-700/10 rounded-2xl flex items-center justify-center border border-brand-500/20 shrink-0">
+              <Users size={24} className="text-brand-400" />
+            </div>
+            <div>
+              <p className="text-[10px] text-brand-400 font-bold uppercase tracking-[0.2em] mb-0.5">Painel Geral</p>
+              <h1 className="text-2xl font-black text-ink-100 font-cinzel tracking-wide">ATLETAS</h1>
+              <p className="text-xs text-ink-500 mt-0.5">
+                Consulte, cadastre e gerencie a filiação técnica dos atletas.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 self-end sm:self-auto">
+            <span className="text-[10px] font-black uppercase tracking-wider px-3 py-1.5 rounded-xl bg-white/[0.03] border border-white/[0.06] text-ink-400 font-mono">
+              {atletas.length} Cadastrado(s)
+            </span>
+            <button
+              onClick={() => setMostrarForm(!mostrarForm)}
+              className="bg-gradient-to-r from-gold-500 to-amber-600 hover:scale-[1.02] text-white text-xs font-black uppercase tracking-wider px-4 py-2.5 rounded-xl transition duration-300 flex items-center gap-2 shadow-lg shadow-gold-500/5"
+            >
+              <Plus size={14} />
+              Novo atleta
+            </button>
+          </div>
         </div>
-        {!isAdmin && (
-          <button
-            onClick={() => setMostrarForm(!mostrarForm)}
-            className="btn-primary flex items-center gap-2"
-          >
-            <Plus size={16} />
-            Novo atleta
-          </button>
-        )}
       </div>
 
       {mostrarForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
-          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm animate-overlay" onClick={() => setMostrarForm(false)} />
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm animate-overlay" onClick={() => setMostrarForm(false)} />
           <div className="relative w-full max-w-4xl z-10 page-enter">
             <FormAtleta
               modo="novo"
@@ -825,7 +1065,7 @@ export default function AtletasPage() {
 
       {atletaEditando && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
-          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm animate-overlay" onClick={() => setAtletaEditando(null)} />
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm animate-overlay" onClick={() => setAtletaEditando(null)} />
           <div className="relative w-full max-w-4xl z-10 page-enter">
             <FormAtleta
               modo="editar"
@@ -837,39 +1077,42 @@ export default function AtletasPage() {
         </div>
       )}
 
-      <div className="relative mb-4">
-        <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-500" />
-        <input
-          className="input-field pl-10"
-          placeholder="Buscar por nome, CPF, telefone, cidade ou professor..."
-          value={busca}
-          onChange={(e) => setBusca(e.target.value)}
-        />
+      {/* Barra de Filtro e Busca Premium */}
+      <div className="relative bg-dark-200/50 backdrop-blur-xl border border-white/[0.04] p-4 rounded-2xl flex gap-3 shadow-xl">
+        <div className="relative flex-1">
+          <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-ink-500" />
+          <input
+            className="w-full bg-dark-300/80 border border-white/[0.06] hover:border-white/[0.12] focus:border-gold-500/80 focus:ring-1 focus:ring-gold-500/20 text-ink-100 placeholder-ink-600 text-sm px-4 py-3 pl-11 rounded-xl transition duration-300 outline-none"
+            placeholder="Buscar por nome, CPF, telefone, cidade ou professor..."
+            value={busca}
+            onChange={(e) => setBusca(e.target.value)}
+          />
+        </div>
       </div>
 
       {loading ? (
-        <div className="text-center py-12 text-ink-400 flex items-center justify-center gap-2">
-          <Loader2 size={18} className="animate-spin" /> Carregando atletas...
+        <div className="text-center py-16 text-ink-500 flex items-center justify-center gap-2.5">
+          <Loader2 size={20} className="animate-spin text-gold-400" /> Carregando atletas da federação...
         </div>
       ) : atletasFiltrados.length === 0 ? (
-        <div className="text-center py-12">
-          <div className="w-16 h-16 bg-dark-400 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Users size={28} className="text-ink-500" />
+        <div className="text-center py-16 bg-dark-200/20 border border-white/[0.04] rounded-2xl">
+          <div className="w-14 h-14 bg-dark-400/80 border border-white/[0.04] rounded-2xl flex items-center justify-center mx-auto mb-4 text-ink-500 shadow-inner">
+            <Users size={24} />
           </div>
-          <p className="text-ink-400">
-            {busca ? 'Nenhum atleta encontrado para esta busca' : 'Nenhum atleta cadastrado ainda'}
+          <p className="text-ink-400 text-sm font-medium">
+            {busca ? 'Nenhum atleta encontrado para esta busca.' : 'Nenhum atleta cadastrado ainda.'}
           </p>
           {!busca && !mostrarForm && !isAdmin && (
             <button
               onClick={() => setMostrarForm(true)}
-              className="mt-4 text-brand-400 hover:text-brand-300 text-sm font-medium transition"
+              className="mt-4 text-xs font-bold text-gold-400 hover:text-gold-300 uppercase tracking-wider transition"
             >
               Cadastrar primeiro atleta →
             </button>
           )}
         </div>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-3">
           {atletasFiltrados.map((a) => (
             <LinhaAtleta
               key={a.id}

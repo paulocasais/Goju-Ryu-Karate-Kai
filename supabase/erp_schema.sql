@@ -85,6 +85,12 @@ CREATE TABLE IF NOT EXISTS public.atletas (
   senha_temporaria TEXT, -- Armazenada temporariamente no cadastro
   status TEXT NOT NULL DEFAULT 'ativo' CHECK (status IN ('ativo', 'pendente', 'suspenso')),
   
+  -- Responsável Legal (para menores de idade)
+  responsavel_nome TEXT,
+  responsavel_cpf TEXT,
+  responsavel_email TEXT,
+  responsavel_telefone TEXT,
+  
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
 );

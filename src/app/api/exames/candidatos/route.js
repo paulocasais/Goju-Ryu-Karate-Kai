@@ -29,11 +29,11 @@ export async function GET(request) {
             .from('exames_candidatos')
             .select(`
                 *,
-                exames:exame_id (*),
-                atletas:atleta_id (
+                exames!exame_id (*),
+                atletas!atleta_id (
                     *,
-                    profiles:id (nome, email, telefone),
-                    filiais:filial_id (nome)
+                    profiles!id (nome, email, telefone),
+                    filiais!filial_id (nome)
                 )
             `)
             .order('created_at', { ascending: false })

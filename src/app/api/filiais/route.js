@@ -15,7 +15,7 @@ export async function GET(request) {
         .from('filiais')
         .select(`
             *,
-            profiles:id (
+            profiles!id (
                 nome,
                 email,
                 telefone
@@ -23,7 +23,10 @@ export async function GET(request) {
         `, { count: 'exact' })
         .order('created_at', { ascending: false })
 
-    if (status) query = query.eq('status', status)
+    if (status) {
+        const mappedStatus = status === 'aprovado' ? 'ativo' : status
+        query = query.eq('status', mappedStatus)
+    }
     if (tipo) query = query.eq('tipo', tipo)
 
     query = query.range(offset, offset + limit - 1)
@@ -91,7 +94,7 @@ export async function POST(request) {
         .from('filiais')
         .select(`
             *,
-            profiles:id (
+            profiles!id (
                 nome,
                 email,
                 telefone

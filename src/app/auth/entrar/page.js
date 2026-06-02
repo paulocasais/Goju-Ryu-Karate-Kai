@@ -3,11 +3,12 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase'
+import { useAuth } from '@/context/AuthContext'
 import { Eye, EyeOff, Lock, Mail } from 'lucide-react'
 
 export default function EntrarPage() {
   const router = useRouter()
+  const { loginLegado } = useAuth()
   const [form, setForm] = useState({ email: '', password: '' })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -20,12 +21,7 @@ export default function EntrarPage() {
     setLoading(true)
     setError('')
     try {
-      const supabase = createClient()
-      const { error: err } = await supabase.auth.signInWithPassword({
-        email: form.email,
-        password: form.password,
-      })
-      if (err) throw err
+      await loginLegado(form.email, form.password)
       router.push('/home')
       router.refresh()
     } catch (err) {
@@ -101,15 +97,6 @@ export default function EntrarPage() {
                   {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
                 </button>
               </div>
-            </div>
-
-            <div className="flex justify-end -mt-2">
-              <Link
-                href="/auth/esqueceu-senha"
-                className="text-xs text-gray-500 hover:text-primary transition-colors"
-              >
-                Esqueceu a senha?
-              </Link>
             </div>
 
             {error && (

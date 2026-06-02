@@ -25,13 +25,13 @@ export async function GET(request) {
             .from('pagamentos')
             .select(`
                 *,
-                atletas:atleta_id (
+                atletas!atleta_id (
                     id,
-                    profiles:id (
+                    profiles!id (
                         nome
                     )
                 ),
-                filiais:filial_id (
+                filiais!filial_id (
                     id,
                     nome
                 )

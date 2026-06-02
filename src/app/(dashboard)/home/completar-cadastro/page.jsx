@@ -29,6 +29,33 @@ function formatarCep(valor) {
     .replace(/(\d{5})(\d)/, '$1-$2');
 }
 
+function formatarTelefone(valor) {
+  const numeros = valor.replace(/\D/g, '').slice(0, 11);
+  if (numeros.length <= 10) {
+    return numeros
+      .replace(/(\d{2})(\d)/, '($1) $2')
+      .replace(/(\d{4})(\d)/, '$1-$2')
+      .replace(/(-\d{4})\d+?$/, '$1');
+  }
+
+  return numeros
+    .replace(/(\d{2})(\d)/, '($1) $2')
+    .replace(/(\d{5})(\d)/, '$1-$2')
+    .replace(/(-\d{4})\d+?$/, '$1');
+}
+
+const isMenorDeIdade = (dataNascimento) => {
+  if (!dataNascimento) return false;
+  const hoje = new Date();
+  const nascimento = new Date(dataNascimento);
+  let idade = hoje.getFullYear() - nascimento.getFullYear();
+  const m = hoje.getMonth() - nascimento.getMonth();
+  if (m < 0 || (m === 0 && hoje.getDate() < nascimento.getDate())) {
+    idade--;
+  }
+  return idade < 18;
+};
+
 export default function CompletarCadastroPage() {
   const { usuario, tipo, carregando, recarregarSessao } = useAuth();
   const router = useRouter();
@@ -45,6 +72,10 @@ export default function CompletarCadastroPage() {
     uf: 'BA',
     nome_professor: '',
     filial_id: '',
+    responsavel_nome: '',
+    responsavel_cpf: '',
+    responsavel_email: '',
+    responsavel_telefone: '',
   });
 
   const [filiais, setFiliais] = useState([]);
@@ -130,6 +161,26 @@ export default function CompletarCadastroPage() {
       return;
     }
 
+    const menor = isMenorDeIdade(form.data_nascimento);
+    if (menor) {
+      if (!form.responsavel_nome?.trim()) {
+        toast.error('Nome do responsável é obrigatório para menores de idade.');
+        return;
+      }
+      if (!validateCPF(form.responsavel_cpf)) {
+        toast.error('CPF do responsável inválido. Por favor, verifique.');
+        return;
+      }
+      if (!form.responsavel_email?.trim()) {
+        toast.error('E-mail do responsável é obrigatório para menores de idade.');
+        return;
+      }
+      if (!form.responsavel_telefone?.trim()) {
+        toast.error('Telefone do responsável é obrigatório para menores de idade.');
+        return;
+      }
+    }
+
     setSubmitting(true);
     try {
       const fullAddress = `${form.endereco}, ${form.numero}${form.bairro ? ` - ${form.bairro}` : ''}`;
@@ -142,6 +193,10 @@ export default function CompletarCadastroPage() {
         uf: form.uf,
         nome_professor: form.nome_professor.trim() || null,
         filial_id: form.filial_id,
+        responsavel_nome: menor ? form.responsavel_nome.trim() : null,
+        responsavel_cpf: menor ? form.responsavel_cpf.trim() : null,
+        responsavel_email: menor ? form.responsavel_email.trim() : null,
+        responsavel_telefone: menor ? form.responsavel_telefone.replace(/\D/g, '') : null,
       };
 
       const res = await fetch(`/api/atletas/${usuario.id}`, {
@@ -234,6 +289,70 @@ export default function CompletarCadastroPage() {
             </div>
           </div>
         </div>
+
+        {/* Bloco: Responsável Legal (Visível apenas para menores de idade) */}
+        {isMenorDeIdade(form.data_nascimento) && (
+          <div className="bg-dark-card border border-dark-border p-6 md:p-8 space-y-5 rounded-none animate-fade-in-up">
+            <h2 className="font-cinzel text-sm font-bold text-white uppercase tracking-widest border-b border-dark-border pb-3 flex items-center gap-2">
+              <User size={16} className="text-gold" />
+              Responsável Legal (Menor de Idade)
+            </h2>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              {/* Nome do Responsável */}
+              <div className="flex flex-col gap-2">
+                <label className="text-gray-400 text-xs font-cinzel tracking-wider uppercase">Nome do Responsável *</label>
+                <input
+                  required
+                  type="text"
+                  placeholder="Nome completo do pai, mãe ou responsável legal"
+                  value={form.responsavel_nome}
+                  onChange={handleChange('responsavel_nome')}
+                  className="w-full bg-dark border border-dark-border text-white px-4 py-3 text-xs focus:outline-none focus:border-gold transition-colors"
+                />
+              </div>
+
+              {/* CPF do Responsável */}
+              <div className="flex flex-col gap-2">
+                <label className="text-gray-400 text-xs font-cinzel tracking-wider uppercase">CPF do Responsável *</label>
+                <input
+                  required
+                  type="text"
+                  placeholder="000.000.000-00"
+                  value={form.responsavel_cpf}
+                  onChange={(e) => setForm(prev => ({ ...prev, responsavel_cpf: formatarCPF(e.target.value) }))}
+                  className="w-full bg-dark border border-dark-border text-white px-4 py-3 text-xs focus:outline-none focus:border-gold transition-colors font-mono"
+                />
+              </div>
+
+              {/* E-mail do Responsável */}
+              <div className="flex flex-col gap-2">
+                <label className="text-gray-400 text-xs font-cinzel tracking-wider uppercase">E-mail do Responsável *</label>
+                <input
+                  required
+                  type="email"
+                  placeholder="email@exemplo.com"
+                  value={form.responsavel_email}
+                  onChange={handleChange('responsavel_email')}
+                  className="w-full bg-dark border border-dark-border text-white px-4 py-3 text-xs focus:outline-none focus:border-gold transition-colors"
+                />
+              </div>
+
+              {/* Telefone do Responsável */}
+              <div className="flex flex-col gap-2">
+                <label className="text-gray-400 text-xs font-cinzel tracking-wider uppercase">Telefone do Responsável *</label>
+                <input
+                  required
+                  type="tel"
+                  placeholder="(00) 00000-0000"
+                  value={form.responsavel_telefone}
+                  onChange={(e) => setForm(prev => ({ ...prev, responsavel_telefone: formatarTelefone(e.target.value) }))}
+                  className="w-full bg-dark border border-dark-border text-white px-4 py-3 text-xs focus:outline-none focus:border-gold transition-colors font-mono"
+                />
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Bloco 2: Dojo & Afiliação */}
         <div className="bg-dark-card border border-dark-border p-6 md:p-8 space-y-5 rounded-none">

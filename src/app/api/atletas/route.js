@@ -30,12 +30,12 @@ export async function GET(request) {
         .from('atletas')
         .select(`
             *,
-            profiles:id (
+            profiles!id (
                 nome,
                 email,
                 telefone
             ),
-            filiais:filial_id (
+            filiais!filial_id (
                 nome,
                 cidade,
                 estado
@@ -157,12 +157,12 @@ export async function POST(request) {
         .eq('id', newUserId)
         .select(`
             *,
-            profiles:id (
+            profiles!id (
                 nome,
                 email,
                 telefone
             ),
-            filiais:filial_id (
+            filiais!filial_id (
                 nome,
                 cidade,
                 estado

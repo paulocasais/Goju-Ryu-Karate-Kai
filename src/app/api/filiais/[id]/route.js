@@ -10,7 +10,7 @@ export async function GET(request, { params }) {
         .from('filiais')
         .select(`
             *,
-            profiles:id (
+            profiles!id (
                 nome,
                 email,
                 telefone
@@ -56,7 +56,7 @@ export async function PATCH(request, { params }) {
         const { error: filialError } = await supabase
             .from('filiais')
             .update({
-                status,
+                status: status === 'aprovado' ? 'ativo' : (status === 'reprovado' ? 'reprovado' : 'pendente'),
                 motivo_reprovacao: status === 'reprovado' ? motivo_reprovacao : null,
                 updated_at: new Date().toISOString()
             })
@@ -66,7 +66,7 @@ export async function PATCH(request, { params }) {
 
         const { data: updatedFilialData, error: fetchError } = await supabase
             .from('filiais')
-            .select(`*, profiles:id (nome, email, telefone)`)
+            .select(`*, profiles!id (nome, email, telefone)`)
             .eq('id', id)
             .single()
 
@@ -132,7 +132,7 @@ export async function PATCH(request, { params }) {
         // Retornar filial atualizada
         const { data: updatedFilial, error: fetchError } = await supabase
             .from('filiais')
-            .select(`*, profiles:id (nome, email, telefone)`)
+            .select(`*, profiles!id (nome, email, telefone)`)
             .eq('id', id)
             .single()
 

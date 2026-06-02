@@ -19,11 +19,11 @@ export async function GET(request) {
                 cidade,
                 uf,
                 filial_id,
-                profiles:id (
+                profiles!id (
                     nome,
                     email
                 ),
-                filiais:filial_id (
+                filiais!filial_id (
                     nome
                 )
             `)
