@@ -36,7 +36,7 @@ export default function SobrePage() {
                 <div className="flex flex-col gap-5 text-gray-300 leading-relaxed">
                   <p>
                     O Goju-Ryu Karate Kai nasceu com a missão de preservar e difundir o Karatê Goju-Ryu Okinawano
-                    em Salvador, Bahia, mantendo viva a tradição milenar desta arte marcial.
+                    em Salvador, Bahia, mantendo viva a tradição secular desta arte marcial.
                   </p>
                   <p>
                     Filiados à IOGKF Brasil — a maior organização de Karatê Goju-Ryu do mundo —, seguimos o currículo
@@ -51,7 +51,7 @@ export default function SobrePage() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 {[
-                  { icon: Award, title: 'IOGKF Brasil', desc: 'Filiados à maior organização mundial de Goju-Ryu' },
+                  { icon: Award, title: 'IOGKF Brasil', desc: 'secular' },
                   { icon: Users, title: 'Todos os Níveis', desc: 'Da iniciação ao grau avançado' },
                   { icon: Globe, title: 'Okinawa', desc: 'Tradição autêntica preservada' },
                   { icon: Shield, title: 'Método Sólido', desc: 'Currículo técnico reconhecido mundialmente' },

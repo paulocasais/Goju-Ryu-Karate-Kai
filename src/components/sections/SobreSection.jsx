@@ -6,7 +6,7 @@ import { Shield, Heart, Star } from 'lucide-react'
 
 const valores = [
   { icon: Shield, label: 'Disciplina', desc: 'Compromisso com a prática diária e o crescimento pessoal.' },
-  { icon: Heart, label: 'Respeito', desc: 'Tradição milenar baseada no respeito mútuo e à arte.' },
+  { icon: Heart, label: 'Respeito', desc: 'Tradição secular baseada no respeito mútuo e à arte.' },
   { icon: Star, label: 'Excelência', desc: 'Busca constante pelo aprimoramento técnico e humano.' },
 ]
 

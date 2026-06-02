@@ -32,7 +32,7 @@
       "email": "atleta-pendente@grkk.com.br",
       "telefone": "71988888888",
       "tipo": "atleta",
-      "status": "ativo",
+      "status": "pendente",
       "updated_at": "2026-06-01T21:58:55.485Z"
     },
     {
@@ -41,7 +41,7 @@
       "email": "filial-pendente@grkk.com.br",
       "telefone": "(71) 97777-7777",
       "tipo": "filial",
-      "status": "ativo",
+      "status": "pendente",
       "updated_at": "2026-06-01T21:41:05.401Z"
     },
     {
@@ -199,7 +199,7 @@
       "telefone": "71988888888",
       "nome_professor": "Mestre Goju",
       "faixa": "Branca",
-      "status": "ativo",
+      "status": "pendente",
       "modalidades": [],
       "updated_at": "2026-06-01T21:58:55.497Z",
       "endereco": "",
@@ -494,7 +494,7 @@
       "nome_fantasia": "Goju-Ryu Pendente",
       "codigo_interno": "BA-SSA-02",
       "tipo": "vinculada",
-      "status": "ativo",
+      "status": "pendente",
       "cpf_responsavel": "555.666.777-88",
       "graduacao_responsavel": "Preta 1º Dan",
       "registro_federativo": "REG-54321",

@@ -39,7 +39,7 @@ const servicos = [
   {
     icon: Heart,
     title: 'Aula Experimental',
-    desc: 'Quer conhecer o Karatê Goju-Ryu? Venha fazer uma aula experimental gratuita e descubra essa arte marcial milenar.',
+    desc: 'Quer conhecer o Karatê Goju-Ryu? Venha fazer uma aula experimental gratuita e descubra essa arte marcial secular.',
     details: ['Totalmente gratuita', 'Sem compromisso', 'Para todas as idades', 'Agende pelo WhatsApp'],
     cta: true,
   },
